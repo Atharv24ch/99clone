@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Design Tokens ──────────────────────────────────────────────────────── */
+:root {
+  --font-inter: 'Inter', sans-serif;
+  --font-outfit: 'Outfit', sans-serif;
+
+  /* Brand */
+  --color-brand: hsl(24, 92%, 51%);
+  --color-brand-light: hsl(24, 100%, 97%);
+  --color-brand-dark: hsl(24, 88%, 36%);
+
+  /* Neutral */
+  --color-bg: hsl(220, 20%, 98%);
+  --color-surface: hsl(0, 0%, 100%);
+  --color-border: hsl(220, 13%, 91%);
+  --color-text: hsl(220, 17%, 14%);
+  --color-text-muted: hsl(220, 9%, 46%);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+  --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.08), 0 4px 16px -2px hsl(0 0% 0% / 0.06);
+  --shadow-card-hover: 0 4px 12px 0 hsl(0 0% 0% / 0.12), 0 16px 40px -4px hsl(0 0% 0% / 0.1);
+  --shadow-xl: 0 20px 60px -10px hsl(0 0% 0% / 0.2);
+}
+
+/* ─── Base styles ─────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: var(--font-inter);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    min-height: 100vh;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(220, 13%, 80%); border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(220, 9%, 60%); }
+}
+
+/* ─── Component utilities ─────────────────────────────────────────────────────── */
+@layer components {
+  .container-app {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-2 font-semibold
+           bg-brand-500 hover:bg-brand-600 active:bg-brand-700
+           text-white rounded-xl px-6 py-3 transition-all duration-150
+           shadow-sm hover:shadow-md focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2
+           select-none;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-slate-100 shadow-card;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-250 ease-out
+           hover:-translate-y-0.5 hover:shadow-card-hover cursor-pointer;
+  }
+
+  .input-base {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900
+           placeholder:text-slate-400 outline-none transition-all duration-150
+           hover:border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  }
+
+  .badge-verified {
+    @apply inline-flex items-center gap-1 bg-emerald-500 text-white text-xs font-medium
+           px-2 py-0.5 rounded-md;
+  }
+
+  .price-tag {
+    @apply font-display text-2xl font-bold text-slate-900;
+  }
+
+  /* Mapbox GL overrides */
+  .mapboxgl-popup-content {
+    @apply rounded-2xl shadow-xl border border-slate-100 p-0 overflow-hidden;
+  }
+  .mapboxgl-popup-close-button {
+    @apply text-slate-500 hover:text-slate-700 text-xl font-light;
+  }
+
+
+}
+
+/* ─── Utilities ───────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  /* ── Glassmorphism tokens (canonical) ─────────────────────────────────────── */
+
+  .glass-nav {
+    @apply bg-white/10 dark:bg-black/20 backdrop-blur-md border-b border-white/20;
+  }
+
+  .glass-card {
+    @apply bg-white/10 dark:bg-black/20 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl;
+  }
+
+  .glass-card-hover {
+    @apply hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:shadow-xl;
+  }
+
+  .glass-input {
+    @apply bg-white/15 dark:bg-white/5 backdrop-blur-sm border border-white/30
+           text-slate-900 dark:text-white placeholder:text-slate-400
+           focus:outline-none focus:ring-2 focus:ring-orange-500/50;
+  }
+
+  .glass-button {
+    @apply bg-orange-500/80 hover:bg-orange-500 backdrop-blur-sm text-white font-semibold transition-all;
+  }
+
+  /* ── Legacy aliases (kept for backward compat) ──────────────────────────── */
+
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/20;
+  }
+
+  .glass-dark {
+    @apply bg-slate-900/70 backdrop-blur-xl border border-white/10;
+  }
+
+  /* ── Background / gradient utilities ───────────────────────────────────── */
+
+  .gradient-brand {
+    background: linear-gradient(135deg, hsl(24, 92%, 51%) 0%, hsl(14, 90%, 48%) 100%);
+  }
+
+  .gradient-hero {
+    background:
+      radial-gradient(at 30% 30%, hsl(24, 92%, 60% / 0.25) 0px, transparent 60%),
+      radial-gradient(at 80% 80%, hsl(200, 80%, 50% / 0.1) 0px, transparent 50%),
+      linear-gradient(180deg, hsl(217, 40%, 8%) 0%, hsl(217, 35%, 12%) 100%);
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, hsl(220, 13%, 91%) 0%, hsl(220, 13%, 96%) 50%, hsl(220, 13%, 91%) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.8s infinite;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+}

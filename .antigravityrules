@@ -1,0 +1,73 @@
+# 99acres Clone — Workspace AI Rules
+# ─────────────────────────────────────────────────────────────────────────────
+# This file is read by Antigravity IDE at session start.
+# Canonical workspace rules live in .agents/AGENTS.md (auto-loaded).
+# This file serves as a human-readable mirror and reference.
+# ─────────────────────────────────────────────────────────────────────────────
+
+## 1. UI Styling Convention
+
+Always use global CSS utility classes instead of long inline Tailwind strings:
+
+| Token          | Use when                                                      |
+|----------------|---------------------------------------------------------------|
+| `.glass-nav`   | Sticky nav bars / top headers                                 |
+| `.glass-card`  | Static content cards (feature cards, info panels)             |
+| `.glass-card-hover` | Clickable cards (property listings, city tiles)          |
+| `.glass-input` | Form inputs that sit on a dark/glass background               |
+| `.glass-button`| Primary CTA buttons on dark/glass backgrounds                 |
+| `.btn-brand`   | Primary CTA on light/white backgrounds                        |
+| `.card`        | Static card on a light background (no glass needed)           |
+| `.card-hover`  | Clickable card on a light background                          |
+| `.input-base`  | Standard input on a light background                          |
+| `.container-app` | Max-width content wrapper (max-w-7xl, auto margins, px)    |
+
+All glass tokens are defined in `apps/web/src/app/globals.css` under `@layer components`.
+All shadow/animation tokens are in `apps/web/tailwind.config.ts`.
+
+## 2. Scope Discipline
+
+- Only read/edit files **explicitly specified** in the active prompt.
+- Do NOT perform full workspace scans (`list_dir`, `grep_search` across entire repo)
+  unless the user explicitly asks for a workspace-wide search or refactor.
+- When fixing a bug, read only the file containing the error and its direct imports.
+
+## 3. Cross-Session Memory
+
+- Read `MEMORY.md` at the start of every session to restore active context.
+- After completing a major milestone (feature, bug-fix batch, refactor),
+  update `MEMORY.md` with current status, resolved errors, and next steps.
+
+## 4. TypeScript & Next.js Rules
+
+- **No `any` types** — use `unknown` + type narrowing, or define explicit interfaces.
+- **Server Components by default** — only add `"use client"` when hooks/events are needed.
+- **Dynamic SEO metadata** — every listing/search page must export a `generateMetadata` function.
+- **Imports** — use extensionless paths in `apps/web` (webpack bundler mode).
+  Use `.js` extensions only in `apps/api-server` (Node ESM mode).
+- **No `fastify.authenticate` in route files** — always use the standalone `authGuard`
+  middleware from `apps/api-server/src/middleware/authGuard.ts`.
+
+## 5. Port Map
+
+| Service              | Port  |
+|----------------------|-------|
+| Next.js (web)        | 3001  |
+| Fastify (api-server) | 3002  |
+| PostgreSQL            | 5432  |
+| Redis                | 6379  |
+| OpenSearch           | 9200  |
+| OpenSearch Dashboards| 5601  |
+| LocalStack (S3)      | 4566  |
+
+## 6. Key File Locations
+
+- Global CSS tokens:   `apps/web/src/app/globals.css`
+- Tailwind config:     `apps/web/tailwind.config.ts`
+- Background layer:    `apps/web/src/components/common/BackgroundMedia.tsx`
+- Root layout:         `apps/web/src/app/layout.tsx`
+- Homepage:            `apps/web/src/app/page.tsx`
+- API auth guard:      `apps/api-server/src/middleware/authGuard.ts`
+- Auth plugin:         `apps/api-server/src/plugins/auth.ts`
+- DB schema:           `packages/db/src/schema/index.ts`
+- UI package index:    `packages/ui/src/index.ts` (extensionless exports only)
