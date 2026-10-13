@@ -1,6 +1,5 @@
 import {
   boolean,
-  customType,
   decimal,
   index,
   integer,
@@ -16,26 +15,6 @@ import {
 import { sql } from "drizzle-orm";
 
 import { users } from "./users";
-
-// ─── PostGIS custom type ──────────────────────────────────────────────────────
-
-/**
- * Drizzle doesn't ship a PostGIS geometry type, so we declare it as a
- * customType. Values are read back as WKT strings from PostGIS and written
- * using ST_GeomFromText.
- */
-const geometry = customType<{ data: string; driverData: string }>({
-  dataType() {
-    return "geometry(Point, 4326)";
-  },
-  fromDriver(val) {
-    return val as string;
-  },
-  toDriver(val) {
-    // val expected as "POINT(lng lat)"
-    return sql`ST_GeomFromText(${val}, 4326)` as unknown as string;
-  },
-});
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -150,8 +129,6 @@ export const properties = pgTable(
     pincode: varchar("pincode", { length: 10 }),
     latitude: decimal("latitude", { precision: 10, scale: 7 }),
     longitude: decimal("longitude", { precision: 10, scale: 7 }),
-    // PostGIS spatial column — queried with ST_DWithin / ST_Distance
-    location: geometry("location"),
 
     // Metadata
     isVerified: boolean("is_verified").notNull().default(false),
@@ -186,20 +163,6 @@ export const properties = pgTable(
     index("properties_bedrooms_idx").on(t.bedrooms),
     index("properties_featured_idx").on(t.isFeatured),
     index("properties_slug_idx").on(t.slug),
-    // PostGIS GIST spatial index — critical for ST_DWithin radius queries
-    index("properties_location_gist_idx").using(
-      "gist",
-      sql`location`
-    ),
-    // Trigram index for full-text locality / title search
-    index("properties_locality_trgm_idx").using(
-      "gin",
-      sql`locality gin_trgm_ops`
-    ),
-    index("properties_title_trgm_idx").using(
-      "gin",
-      sql`title gin_trgm_ops`
-    ),
   ]
 );
 
