@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@types/node':
+        specifier: ^22.8.0
+        version: 22.20.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -24,6 +27,9 @@ importers:
 
   apps/api-server:
     dependencies:
+      '@99acres/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@99acres/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -54,6 +60,9 @@ importers:
       '@opensearch-project/opensearch':
         specifier: ^3.0.0
         version: 3.6.0
+      '@types/node':
+        specifier: ^22.8.0
+        version: 22.20.1
       bullmq:
         specifier: ^5.25.0
         version: 5.81.3
@@ -76,12 +85,6 @@ importers:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@99acres/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@types/node':
-        specifier: ^22.8.0
-        version: 22.20.1
       tsx:
         specifier: ^4.19.2
         version: 4.23.8
@@ -176,25 +179,25 @@ importers:
 
   packages/db:
     dependencies:
-      drizzle-orm:
-        specifier: ^0.36.4
-        version: 0.36.4(@opentelemetry/api@1.9.1)(@types/react@18.3.31)(postgres@3.4.9)(react@18.3.1)
-      postgres:
-        specifier: ^3.4.5
-        version: 3.4.9
-    devDependencies:
       '@99acres/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
         specifier: ^22.8.0
         version: 22.20.1
-      drizzle-kit:
-        specifier: ^0.28.1
-        version: 0.28.1
+      drizzle-orm:
+        specifier: ^0.36.4
+        version: 0.36.4(@opentelemetry/api@1.9.1)(@types/react@18.3.31)(postgres@3.4.9)(react@18.3.1)
+      postgres:
+        specifier: ^3.4.5
+        version: 3.4.9
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+    devDependencies:
+      drizzle-kit:
+        specifier: ^0.28.1
+        version: 0.28.1
 
   packages/ui:
     dependencies:
