@@ -5,8 +5,8 @@
     "rootDir": "./src",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    // These ultra-strict options conflict with Drizzle ORM insert types,
-    // Firebase Admin ServiceAccount, and OpenSearch aggregation accessors.
+    // These ultra-strict options conflict with Drizzle ORM insert types
+    // and OpenSearch aggregation accessors.
     // All other strict options (noImplicitAny, strictNullChecks, etc.) remain active.
     "exactOptionalPropertyTypes": false,
     "noPropertyAccessFromIndexSignature": false

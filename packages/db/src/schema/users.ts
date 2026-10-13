@@ -32,7 +32,6 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    firebaseUid: varchar("firebase_uid", { length: 128 }).unique(),
     email: varchar("email", { length: 256 }).unique(),
     phone: varchar("phone", { length: 20 }).unique(),
     firstName: varchar("first_name", { length: 100 }).notNull(),
@@ -57,7 +56,6 @@ export const users = pgTable(
   (t) => [
     index("users_email_idx").on(t.email),
     index("users_phone_idx").on(t.phone),
-    index("users_firebase_uid_idx").on(t.firebaseUid),
     index("users_role_idx").on(t.role),
   ]
 );
