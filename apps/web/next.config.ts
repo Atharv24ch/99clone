@@ -10,7 +10,13 @@ const nextConfig: NextConfig = {
   // Image optimization
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "cdn.yourdomain.com" },
+      // Production CDN — set NEXT_PUBLIC_CDN_URL=https://cdn.yourdomain.com on Vercel
+      ...(process.env["NEXT_PUBLIC_CDN_URL"]
+        ? [{
+            protocol: "https" as const,
+            hostname: new URL(process.env["NEXT_PUBLIC_CDN_URL"]).hostname,
+          }]
+        : []),
       { protocol: "http", hostname: "localhost", port: "4566" }, // LocalStack dev
       { protocol: "https", hostname: "*.cloudfront.net" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" }, // Google avatars
@@ -29,17 +35,20 @@ const nextConfig: NextConfig = {
   },
 
   // Redirect www -> non-www in production
+  // Set NEXT_PUBLIC_DOMAIN=yourdomain.com on Vercel (without https://)
   async redirects() {
-    return process.env["NODE_ENV"] === "production"
-      ? [
-          {
-            source: "/(.*)",
-            has: [{ type: "host", value: "www.yourdomain.com" }],
-            destination: "https://yourdomain.com/:path*",
-            permanent: true,
-          },
-        ]
-      : [];
+    const domain = process.env["NEXT_PUBLIC_DOMAIN"];
+    if (process.env["NODE_ENV"] === "production" && domain) {
+      return [
+        {
+          source: "/(.*)",
+          has: [{ type: "host" as const, value: `www.${domain}` }],
+          destination: `https://${domain}/:path*`,
+          permanent: true,
+        },
+      ];
+    }
+    return [];
   },
 
   // Security headers
