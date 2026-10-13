@@ -11,7 +11,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-import { users } from "./users";
+import { users } from "./users.js";
 
 export const projectStatusEnum = pgEnum("project_status", [
   "pre_launch",

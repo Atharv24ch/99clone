@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import * as schema from "./schema/index";
+import * as schema from "./schema/index.js";
 
 // ─── Singleton DB client ──────────────────────────────────────────────────────
 
@@ -19,6 +19,6 @@ const queryClient = postgres(connectionString, {
 export const db = drizzle(queryClient, { schema, logger: process.env["NODE_ENV"] === "development" });
 
 // Re-export everything
-export * from "./schema/index";
+export * from "./schema/index.js";
 export { schema };
 export type { InferSelectModel, InferInsertModel } from "drizzle-orm";

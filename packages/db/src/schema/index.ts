@@ -1,5 +1,5 @@
 // Re-export all schema tables and types for monorepo consumers
-export * from "./users";
-export * from "./properties";
-export * from "./leads";
-export * from "./projects";
+export * from "./users.js";
+export * from "./properties.js";
+export * from "./leads.js";
+export * from "./projects.js";

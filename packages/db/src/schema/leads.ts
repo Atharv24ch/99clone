@@ -8,8 +8,8 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
-import { properties } from "./properties";
-import { users } from "./users";
+import { properties } from "./properties.js";
+import { users } from "./users.js";
 
 export const leadStatusEnum = pgEnum("lead_status", [
   "new",
