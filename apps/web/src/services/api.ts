@@ -1,4 +1,8 @@
-const API_BASE = process.env["NEXT_PUBLIC_API_URL"] ?? "http://localhost:3002";
+// Tolerate common misconfigurations: trailing slashes or a pasted "/api/v1" suffix
+const API_BASE = (process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:3002")
+  .trim()
+  .replace(/\/+$/, "")
+  .replace(/\/api\/v1$/, "");
 
 type RequestOptions = RequestInit & {
   token?: string | null;

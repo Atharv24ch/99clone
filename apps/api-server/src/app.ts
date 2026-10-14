@@ -17,6 +17,8 @@ export async function buildApp() {
       level: process.env["NODE_ENV"] === "production" ? "warn" : "info",
     },
     trustProxy: true,
+    // "/api/v1//auth" and "/api/v1/auth/" resolve like "/api/v1/auth"
+    routerOptions: { ignoreTrailingSlash: true, ignoreDuplicateSlashes: true },
   });
 
   // ── Plugins ──────────────────────────────────────────────────────────────────
