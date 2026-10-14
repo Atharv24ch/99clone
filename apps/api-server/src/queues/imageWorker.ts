@@ -1,26 +1,15 @@
 import { Worker } from "bullmq";
 import sharp from "sharp";
-import { S3Client, GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { db, propertyImages } from "@99acres/db";
 import { eq } from "drizzle-orm";
 import { Readable } from "stream";
 
 import { createWorkerRedis } from "../config/redis.js";
+import { s3, S3_BUCKET as BUCKET, publicMediaBase } from "../config/s3.js";
 
 const redis = createWorkerRedis();
-const BUCKET = process.env["AWS_S3_BUCKET"] ?? "acres99-media";
-const WATERMARK_TEXT = "99acres.com";
-
-const s3Endpoint = process.env["AWS_S3_ENDPOINT"];
-const s3 = new S3Client({
-  region: process.env["AWS_REGION"] ?? "ap-south-1",
-  ...(s3Endpoint ? { endpoint: s3Endpoint } : {}),
-  forcePathStyle: !!s3Endpoint,
-  credentials: {
-    accessKeyId: process.env["AWS_ACCESS_KEY_ID"] ?? "test",
-    secretAccessKey: process.env["AWS_SECRET_ACCESS_KEY"] ?? "test",
-  },
-});
+const WATERMARK_TEXT = "aangan";
 
 interface ImageJobData {
   imageId: string;
@@ -74,6 +63,8 @@ const imageWorker = new Worker<ImageJobData>(
       </svg>
     `);
 
+    const meta = await sharp(originalBuffer).metadata();
+
     // 3. Apply watermark + optimize
     const watermarkedBuffer = await sharp(originalBuffer)
       .resize({ width: 1200, height: 900, fit: "inside", withoutEnlargement: true })
@@ -102,14 +93,15 @@ const imageWorker = new Worker<ImageJobData>(
       })),
     ]);
 
-    const cdnBase = process.env["CLOUDFLARE_CDN_URL"]
-      ?? `${process.env["AWS_S3_ENDPOINT"] ?? ""}/${BUCKET}`;
+    const cdnBase = publicMediaBase();
 
     // 6. Update DB
     await db
       .update(propertyImages)
       .set({
         isWatermarked: true,
+        width: meta.width ?? null,
+        height: meta.height ?? null,
         thumbnailUrl: `${cdnBase}/${thumbnailKey}`,
         cdnUrl: `${cdnBase}/${watermarkedKey}`,
       })

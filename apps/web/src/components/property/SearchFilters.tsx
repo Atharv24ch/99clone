@@ -1,284 +1,216 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, SlidersHorizontal, RotateCcw, ChevronDown } from "lucide-react";
-import { useFilters } from "@/hooks/useFilters";
-import type { FurnishingStatus, PossessionStatus, PropertyType } from "@/types/property";
+import { X } from "lucide-react";
 
-const PRICE_RANGES = [
-  { label: "Under ₹50L", min: 0, max: 5_000_000 },
-  { label: "₹50L – ₹1Cr", min: 5_000_000, max: 10_000_000 },
-  { label: "₹1Cr – ₹2Cr", min: 10_000_000, max: 20_000_000 },
-  { label: "₹2Cr – ₹5Cr", min: 20_000_000, max: 50_000_000 },
-  { label: "₹5Cr+", min: 50_000_000, max: undefined },
+import { useFilters } from "@/hooks/useFilters";
+import type { FurnishingStatus, ListingType, PossessionStatus, PropertyType } from "@/types/property";
+import { FURNISHING_LABEL, POSSESSION_LABEL, isRental } from "@/types/property";
+
+const SALE_BUDGETS = [
+  { label: "Under ₹50 L", min: undefined, max: 5_000_000 },
+  { label: "₹50 L – 1 Cr", min: 5_000_000, max: 10_000_000 },
+  { label: "₹1 – 2 Cr", min: 10_000_000, max: 20_000_000 },
+  { label: "₹2 – 5 Cr", min: 20_000_000, max: 50_000_000 },
+  { label: "Above ₹5 Cr", min: 50_000_000, max: undefined },
 ];
 
-const BHK_OPTIONS = [1, 2, 3, 4, 5];
+const RENT_BUDGETS = [
+  { label: "Under ₹15k", min: undefined, max: 15_000 },
+  { label: "₹15k – 30k", min: 15_000, max: 30_000 },
+  { label: "₹30k – 60k", min: 30_000, max: 60_000 },
+  { label: "₹60k – 1 L", min: 60_000, max: 100_000 },
+  { label: "Above ₹1 L", min: 100_000, max: undefined },
+];
 
 const PROPERTY_TYPES: Array<{ value: PropertyType; label: string }> = [
   { value: "apartment", label: "Apartment" },
-  { value: "independent_house", label: "Independent House" },
+  { value: "independent_house", label: "Independent house" },
   { value: "villa", label: "Villa" },
-  { value: "plot", label: "Plot / Land" },
-  { value: "commercial_office", label: "Commercial Office" },
+  { value: "plot", label: "Plot" },
+  { value: "commercial_office", label: "Office" },
+  { value: "commercial_shop", label: "Shop" },
 ];
 
-export function SearchFilters({ onClose }: { onClose?: () => void }) {
-  const { filters, setFilters, resetFilters, activeFilterCount } = useFilters();
-  const [expandedSections, setExpandedSections] = useState({
-    price: true,
-    bhk: true,
-    type: true,
-    furnishing: false,
-    possession: false,
-  });
+const LISTING_TYPES: Array<{ value: ListingType; label: string }> = [
+  { value: "buy", label: "Buy" },
+  { value: "rent", label: "Rent" },
+  { value: "pg", label: "PG" },
+  { value: "commercial_buy", label: "Commercial" },
+  { value: "plot_buy", label: "Plots" },
+  { value: "new_project", label: "New projects" },
+];
 
-  const toggleSection = (key: keyof typeof expandedSections) => {
-    setExpandedSections((s) => ({ ...s, [key]: !s[key] }));
-  };
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="border-b border-rule px-5 py-5">
+      <legend className="field-label float-left mb-3 w-full">{title}</legend>
+      <div className="clear-both">{children}</div>
+    </fieldset>
+  );
+}
+
+export function SearchFilters({ onClose, resultCount }: { onClose?: () => void; resultCount?: number }) {
+  const { filters, setFilters, resetFilters, activeFilterCount } = useFilters();
+  const budgets = filters.listingType && isRental(filters.listingType) ? RENT_BUDGETS : SALE_BUDGETS;
 
   return (
-    <div className="flex h-full flex-col bg-white">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-slate-500" />
-          <h2 className="text-sm font-semibold text-slate-900">Filters</h2>
+    <div className="flex h-full flex-col bg-paper-sheet">
+      <div className="flex items-center justify-between border-b border-rule px-5 py-4">
+        <h2 className="font-display text-xl text-ink">Refine</h2>
+        <div className="flex items-center gap-1">
           {activeFilterCount > 0 && (
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-[10px] font-bold text-white">
-              {activeFilterCount}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {activeFilterCount > 0 && (
-            <button
-              onClick={resetFilters}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors"
-              id="filter-reset-btn"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset
+            <button type="button" onClick={resetFilters} className="btn-quiet !px-2 !py-1 text-sm text-seal">
+              Clear all
             </button>
           )}
           {onClose && (
-            <button
-              onClick={onClose}
-              className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
-              aria-label="Close filters"
-            >
-              <X className="h-4 w-4" />
+            <button type="button" onClick={onClose} className="btn-quiet !p-1.5" aria-label="Close filters">
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Scrollable filter sections */}
       <div className="flex-1 overflow-y-auto">
+        <Group title="Looking to">
+          <div className="flex flex-wrap gap-2">
+            {LISTING_TYPES.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                className="chip"
+                aria-pressed={filters.listingType === t.value}
+                onClick={() =>
+                  setFilters({
+                    listingType: filters.listingType === t.value ? undefined : t.value,
+                    minPrice: undefined,
+                    maxPrice: undefined,
+                  })
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </Group>
 
-        {/* Budget / Price */}
-        <FilterSection
-          title="Budget"
-          expanded={expandedSections.price}
-          onToggle={() => toggleSection("price")}
-        >
-          <div className="space-y-2">
-            {PRICE_RANGES.map((range) => {
-              const active =
-                filters.minPrice === range.min &&
-                filters.maxPrice === range.max;
+        <Group title="Budget">
+          <div className="grid grid-cols-2 gap-2">
+            {budgets.map((b) => {
+              const active = filters.minPrice === b.min && filters.maxPrice === b.max;
               return (
                 <button
-                  key={range.label}
-                  id={`filter-price-${range.label.replace(/\s+/g, "-")}`}
-                  onClick={() =>
-                    setFilters({
-                      minPrice: active ? undefined : range.min,
-                      maxPrice: active ? undefined : range.max,
-                    })
-                  }
-                  className={[
-                    "w-full rounded-xl border px-4 py-2.5 text-left text-sm transition-all duration-150",
-                    active
-                      ? "border-brand-400 bg-brand-50 text-brand-700 font-medium"
-                      : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                  ].join(" ")}
+                  key={b.label}
+                  type="button"
+                  className="chip !justify-start"
+                  aria-pressed={active}
+                  onClick={() => setFilters({ minPrice: active ? undefined : b.min, maxPrice: active ? undefined : b.max })}
                 >
-                  {range.label}
+                  {b.label}
                 </button>
               );
             })}
           </div>
-        </FilterSection>
+        </Group>
 
-        {/* BHK */}
-        <FilterSection
-          title="Bedrooms (BHK)"
-          expanded={expandedSections.bhk}
-          onToggle={() => toggleSection("bhk")}
-        >
+        <Group title="Bedrooms">
           <div className="flex flex-wrap gap-2">
-            {BHK_OPTIONS.map((bhk) => (
+            {[1, 2, 3, 4].map((n) => {
+              const active = filters.minBedrooms === n && filters.maxBedrooms === n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  className="chip tabular min-w-[64px]"
+                  aria-pressed={active}
+                  onClick={() => setFilters({ minBedrooms: active ? undefined : n, maxBedrooms: active ? undefined : n })}
+                >
+                  {n} BHK
+                </button>
+              );
+            })}
+            {(() => {
+              const active = filters.minBedrooms === 5 && filters.maxBedrooms === undefined;
+              return (
+                <button
+                  type="button"
+                  className="chip tabular min-w-[64px]"
+                  aria-pressed={active}
+                  onClick={() => setFilters({ minBedrooms: active ? undefined : 5, maxBedrooms: undefined })}
+                >
+                  5+ BHK
+                </button>
+              );
+            })()}
+          </div>
+        </Group>
+
+        <Group title="Property type">
+          <div className="flex flex-wrap gap-2">
+            {PROPERTY_TYPES.map((t) => (
               <button
-                key={bhk}
-                id={`filter-bhk-${bhk}`}
-                onClick={() =>
-                  setFilters({
-                    minBedrooms: filters.minBedrooms === bhk ? undefined : bhk,
-                    maxBedrooms: filters.maxBedrooms === bhk ? undefined : bhk,
-                  })
-                }
-                className={[
-                  "flex h-10 w-14 items-center justify-center rounded-xl border text-sm font-medium transition-all duration-150",
-                  filters.minBedrooms === bhk
-                    ? "border-brand-400 bg-brand-50 text-brand-700"
-                    : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                ].join(" ")}
+                key={t.value}
+                type="button"
+                className="chip"
+                aria-pressed={filters.propertyType === t.value}
+                onClick={() => setFilters({ propertyType: filters.propertyType === t.value ? undefined : t.value })}
               >
-                {bhk} BHK
+                {t.label}
               </button>
             ))}
-            <button
-              id="filter-bhk-5plus"
-              onClick={() =>
-                setFilters({
-                  minBedrooms: filters.minBedrooms === 5 ? undefined : 5,
-                  maxBedrooms: undefined,
-                })
-              }
-              className={[
-                "flex h-10 w-16 items-center justify-center rounded-xl border text-sm font-medium transition-all duration-150",
-                filters.minBedrooms === 5 && !filters.maxBedrooms
-                  ? "border-brand-400 bg-brand-50 text-brand-700"
-                  : "border-slate-200 text-slate-700 hover:border-slate-300",
-              ].join(" ")}
-            >
-              5+ BHK
-            </button>
           </div>
-        </FilterSection>
+        </Group>
 
-        {/* Property Type */}
-        <FilterSection
-          title="Property Type"
-          expanded={expandedSections.type}
-          onToggle={() => toggleSection("type")}
-        >
-          <div className="space-y-2">
-            {PROPERTY_TYPES.map((type) => (
-              <label
-                key={type.value}
-                className="flex cursor-pointer items-center gap-3"
-                htmlFor={`filter-type-${type.value}`}
-              >
-                <input
-                  id={`filter-type-${type.value}`}
-                  type="checkbox"
-                  checked={filters.propertyType === type.value}
-                  onChange={() =>
-                    setFilters({
-                      propertyType:
-                        filters.propertyType === type.value ? undefined : type.value,
-                    })
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-400"
-                />
-                <span className="text-sm text-slate-700">{type.label}</span>
-              </label>
-            ))}
-          </div>
-        </FilterSection>
-
-        {/* Furnishing */}
-        <FilterSection
-          title="Furnishing Status"
-          expanded={expandedSections.furnishing}
-          onToggle={() => toggleSection("furnishing")}
-        >
+        <Group title="Furnishing">
           <div className="flex flex-wrap gap-2">
-            {(["unfurnished", "semi_furnished", "fully_furnished"] as FurnishingStatus[]).map((f) => (
+            {(Object.keys(FURNISHING_LABEL) as FurnishingStatus[]).map((f) => (
               <button
                 key={f}
-                id={`filter-furnishing-${f}`}
+                type="button"
+                className="chip"
+                aria-pressed={filters.furnishingStatus === f}
                 onClick={() => setFilters({ furnishingStatus: filters.furnishingStatus === f ? undefined : f })}
-                className={[
-                  "rounded-xl border px-4 py-2 text-sm transition-all duration-150",
-                  filters.furnishingStatus === f
-                    ? "border-brand-400 bg-brand-50 text-brand-700 font-medium"
-                    : "border-slate-200 text-slate-700 hover:border-slate-300",
-                ].join(" ")}
               >
-                {f.replace(/_/g, " ")}
+                {FURNISHING_LABEL[f]}
               </button>
             ))}
           </div>
-        </FilterSection>
+        </Group>
 
-        {/* Possession */}
-        <FilterSection
-          title="Possession Status"
-          expanded={expandedSections.possession}
-          onToggle={() => toggleSection("possession")}
-        >
-          <div className="space-y-2">
-            {(["ready_to_move", "under_construction", "new_launch"] as PossessionStatus[]).map((p) => (
-              <label key={p} className="flex cursor-pointer items-center gap-3" htmlFor={`filter-possession-${p}`}>
-                <input
-                  id={`filter-possession-${p}`}
-                  type="radio"
-                  name="possession"
-                  checked={filters.possessionStatus === p}
-                  onChange={() => setFilters({ possessionStatus: filters.possessionStatus === p ? undefined : p })}
-                  className="h-4 w-4 border-slate-300 text-brand-500 focus:ring-brand-400"
-                />
-                <span className="text-sm text-slate-700 capitalize">{p.replace(/_/g, " ")}</span>
-              </label>
+        <Group title="Possession">
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(POSSESSION_LABEL) as PossessionStatus[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                className="chip"
+                aria-pressed={filters.possessionStatus === p}
+                onClick={() => setFilters({ possessionStatus: filters.possessionStatus === p ? undefined : p })}
+              >
+                {POSSESSION_LABEL[p]}
+              </button>
             ))}
           </div>
-        </FilterSection>
+        </Group>
+
+        <div className="px-5 py-5">
+          <label className="flex cursor-pointer items-center gap-3 text-[15px] text-ink">
+            <input
+              type="checkbox"
+              checked={!!filters.verifiedOnly}
+              onChange={(e) => setFilters({ verifiedOnly: e.target.checked || undefined })}
+              className="h-4 w-4 rounded-[2px] border-ink/40 accent-[rgb(var(--seal))]"
+            />
+            Only listings with the registry seal
+          </label>
+        </div>
       </div>
 
-      {/* Apply footer */}
-      <div className="border-t border-slate-100 p-4">
-        <button
-          id="filter-apply-btn"
-          onClick={onClose}
-          className="btn-brand w-full text-sm py-3"
-        >
-          Show Results
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Collapsible filter section ───────────────────────────────────────────────
-
-function FilterSection({
-  title,
-  expanded,
-  onToggle,
-  children,
-}: {
-  title: string;
-  expanded: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="border-b border-slate-100">
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-5 py-4 text-left"
-      >
-        <span className="text-sm font-semibold text-slate-800">{title}</span>
-        <ChevronDown
-          className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-        />
-      </button>
-      {expanded && (
-        <div className="px-5 pb-4 animate-fade-in">
-          {children}
+      {onClose && (
+        <div className="border-t border-rule p-4">
+          <button type="button" onClick={onClose} className="btn-seal w-full">
+            {resultCount !== undefined ? `Show ${resultCount.toLocaleString("en-IN")} listings` : "Show listings"}
+          </button>
         </div>
       )}
     </div>

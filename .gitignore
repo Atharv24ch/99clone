@@ -47,3 +47,8 @@ coverage/
 
 # Misc
 *.tsbuildinfo
+
+# Impeccable scratch (review captures, decision round payloads)
+.impeccable/review/
+.impeccable/decision-payload.json
+.impeccable/mocks/

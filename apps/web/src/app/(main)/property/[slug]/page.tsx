@@ -1,200 +1,196 @@
 import type { Metadata } from "next";
-import React from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  MapPin, BedDouble, Bath, Maximize2, Layers, Calendar,
-  Shield, Star, Zap, Clock, Eye, Phone, MessageSquare,
-} from "lucide-react";
+import { MapPin } from "lucide-react";
+
 import { propertiesService } from "@/services/properties";
-import { formatPrice, formatArea } from "@/types/property";
+import { ApiError } from "@/services/api";
+import {
+  formatArea,
+  formatListingPrice,
+  formatPrice,
+  isRental,
+  listingRef,
+  pricePerSqft,
+  rupeesInWords,
+  FURNISHING_LABEL,
+  LISTING_TYPE_LABEL,
+  POSSESSION_LABEL,
+  PROPERTY_TYPE_LABEL,
+} from "@/types/property";
+import type { Property } from "@/types/property";
 import { PropertyGallery } from "@/components/property/PropertyGallery";
 import { LeadForm } from "@/components/forms/LeadForm";
+import { SaveButton } from "@/components/property/SaveButton";
+import { GuillocheBand, GuillocheRosette } from "@/components/paper/Guilloche";
+import { Seal } from "@/components/paper/Seal";
 
-// ─── SEO metadata ─────────────────────────────────────────────────────────────
+type Params = Promise<{ slug: string }>;
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+async function load(slug: string): Promise<Property | null> {
   try {
-    const { slug } = await params;
-    const { data: property } = await propertiesService.getBySlug(slug);
-    return {
-      title: `${property.title} | ${formatPrice(property.price)} in ${property.locality}, ${property.city}`,
-      description:
-        property.description ??
-        `${property.bedrooms ?? ""} BHK ${property.propertyType.replace(/_/g, " ")} for ${property.listingType} in ${property.locality}, ${property.city}. Listed at ${formatPrice(property.price)}.`,
-      openGraph: {
-        title: property.title,
-        description: `${formatPrice(property.price)} | ${property.locality}, ${property.city}`,
-        images: property.images?.[0] ? [{ url: property.images[0].cdnUrl }] : [],
-        type: "website",
-      },
-    };
-  } catch {
-    return { title: "Property | 99acres Clone" };
+    return (await propertiesService.getBySlug(slug)).data;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
   }
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default async function PropertyDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
+  const property = await load(slug).catch(() => null);
+  if (!property) return { title: "Listing not found" };
 
-  let property;
-  try {
-    const result = await propertiesService.getBySlug(slug);
-    property = result.data;
-  } catch {
-    notFound();
-  }
+  const price = formatListingPrice(property.price, property.listingType);
+  const description =
+    property.description?.slice(0, 160) ??
+    `${property.bedrooms ? `${property.bedrooms} BHK ` : ""}${PROPERTY_TYPE_LABEL[property.propertyType]} ${LISTING_TYPE_LABEL[property.listingType].toLowerCase()} in ${property.locality}, ${property.city} at ${price}.`;
 
-  const specs = [
-    property.bedrooms !== null && { icon: BedDouble, label: "Bedrooms", value: `${property.bedrooms} BHK` },
-    property.bathrooms !== null && { icon: Bath, label: "Bathrooms", value: property.bathrooms },
-    property.builtUpArea && { icon: Maximize2, label: "Built-up Area", value: formatArea(property.builtUpArea) },
-    property.carpetArea && { icon: Maximize2, label: "Carpet Area", value: formatArea(property.carpetArea) },
-    property.floorNumber !== null && { icon: Layers, label: "Floor", value: `${property.floorNumber} of ${property.totalFloors ?? "?"}` },
-    property.facing && { icon: Calendar, label: "Facing", value: property.facing.replace(/_/g, " ") },
-    property.ageOfProperty !== null && { icon: Clock, label: "Age", value: `${property.ageOfProperty} year${property.ageOfProperty !== 1 ? "s" : ""}` },
-    property.furnishingStatus && { icon: Zap, label: "Furnishing", value: property.furnishingStatus.replace(/_/g, " ") },
-  ].filter(Boolean) as Array<{ icon: React.ElementType; label: string; value: string | number }>;
+  return {
+    title: `${property.title}, ${price}`,
+    description,
+    openGraph: {
+      title: property.title,
+      description: `${price} · ${property.locality}, ${property.city}`,
+      images: property.images?.[0] ? [{ url: property.images[0].cdnUrl }] : [],
+    },
+  };
+}
+
+const FACING_LABEL: Record<string, string> = {
+  north: "North", south: "South", east: "East", west: "West",
+  north_east: "North-east", north_west: "North-west", south_east: "South-east", south_west: "South-west",
+};
+
+export default async function PropertyDetailPage({ params }: { params: Params }) {
+  const { slug } = await params;
+  const property = await load(slug);
+  if (!property) notFound();
+
+  const rental = isRental(property.listingType);
+  const perSqft = !rental ? pricePerSqft(property.price, property.builtUpArea) : null;
+
+  const schedule: Array<[string, string]> = (
+    [
+      ["Configuration", property.bedrooms ? `${property.bedrooms} BHK` : null],
+      ["Property type", PROPERTY_TYPE_LABEL[property.propertyType]],
+      ["Bathrooms", property.bathrooms != null ? String(property.bathrooms) : null],
+      ["Balconies", property.balconies != null ? String(property.balconies) : null],
+      ["Built-up area", property.builtUpArea ? formatArea(property.builtUpArea) : null],
+      ["Carpet area", property.carpetArea ? formatArea(property.carpetArea) : null],
+      ["Plot area", property.plotArea ? formatArea(property.plotArea) : null],
+      ["Floor", property.floorNumber != null ? `${property.floorNumber}${property.totalFloors ? ` of ${property.totalFloors}` : ""}` : null],
+      ["Facing", property.facing ? FACING_LABEL[property.facing] ?? property.facing : null],
+      ["Furnishing", property.furnishingStatus ? FURNISHING_LABEL[property.furnishingStatus] : null],
+      ["Possession", property.possessionStatus ? POSSESSION_LABEL[property.possessionStatus] : null],
+      ["Age", property.ageOfProperty != null ? `${property.ageOfProperty} ${property.ageOfProperty === 1 ? "year" : "years"}` : null],
+    ] as Array<[string, string | null]>
+  ).filter((r): r is [string, string] => !!r[1]);
+
+  const listed = property.listedAt
+    ? new Date(property.listedAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
+    : null;
 
   return (
-    <div className="bg-slate-50 pb-16">
+    <div className="pb-20">
       <div className="container-app pt-6">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-xs text-slate-400 mb-4" aria-label="Breadcrumb">
-          <a href="/" className="hover:text-slate-600">Home</a>
-          <span>/</span>
-          <a href={`/search?city=${property.city}`} className="hover:text-slate-600">{property.city}</a>
-          <span>/</span>
-          <a href={`/search?locality=${property.locality}`} className="hover:text-slate-600">{property.locality}</a>
-          <span>/</span>
-          <span className="text-slate-600 truncate max-w-48">{property.title}</span>
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-soft">
+          <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <li><Link href="/" className="hover:text-ink hover:underline">Home</Link></li>
+            <li aria-hidden="true">/</li>
+            <li><Link href={`/search?locality=${encodeURIComponent(property.city)}`} className="hover:text-ink hover:underline">{property.city}</Link></li>
+            <li aria-hidden="true">/</li>
+            <li><Link href={`/search?locality=${encodeURIComponent(property.locality)}`} className="hover:text-ink hover:underline">{property.locality}</Link></li>
+          </ol>
         </nav>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Left: Main content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Gallery */}
-            <PropertyGallery
-              images={property.images ?? []}
-              title={property.title}
-            />
+        <div className="mt-5">
+          <PropertyGallery images={property.images ?? []} title={property.title} />
+        </div>
 
-            {/* Header card */}
-            <div className="card p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex-1">
-                  {/* Badges */}
-                  <div className="flex flex-wrap items-center gap-2 mb-3">
-                    {property.isVerified && (
-                      <span className="badge-verified flex items-center gap-1 text-xs">
-                        <Shield className="h-3 w-3" /> Verified
-                      </span>
-                    )}
-                    {property.isFeatured && (
-                      <span className="flex items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
-                        <Star className="h-3 w-3 fill-brand-400 text-brand-400" /> Featured
-                      </span>
-                    )}
-                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 capitalize">
-                      For {property.listingType === "buy" ? "Sale" : property.listingType === "rent" ? "Rent" : property.listingType.replace(/_/g, " ")}
-                    </span>
-                  </div>
+        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+          {/* The deed */}
+          <article className="sheet relative overflow-hidden">
+            <GuillocheBand className="h-5 w-full text-stamp/35" height={20} />
+            <GuillocheRosette className="pointer-events-none absolute -right-20 top-6 h-64 w-64 text-stamp/[0.08]" size={256} />
 
-                  <h1 className="font-display text-xl sm:text-2xl font-bold text-slate-900 text-balance">
-                    {property.title}
-                  </h1>
-
-                  <p className="mt-2 flex items-center gap-1.5 text-sm text-slate-500">
-                    <MapPin className="h-4 w-4 text-brand-400 flex-shrink-0" />
-                    {property.address}, {property.locality}, {property.city} — {property.pincode}
-                  </p>
-                </div>
-
-                {/* Price */}
-                <div className="text-right">
-                  <p className="font-display text-3xl font-bold text-slate-900">
-                    {formatPrice(property.price)}
-                  </p>
-                  {property.builtUpArea && (
-                    <p className="text-sm text-slate-400 mt-1">
-                      ₹{Math.round(Number(property.price) / Number(property.builtUpArea)).toLocaleString("en-IN")}/sqft
-                    </p>
-                  )}
-                  {property.isNegotiable && (
-                    <span className="mt-1 inline-block rounded-lg bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                      Negotiable
-                    </span>
-                  )}
-                </div>
+            <div className="relative px-6 pb-8 pt-6 sm:px-10">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="field-label">{LISTING_TYPE_LABEL[property.listingType]}</span>
+                <span className="font-typed text-xs tracking-wide text-ink-faint">Regd. {listingRef(property.id)}</span>
               </div>
 
-              {/* View & lead count */}
-              <div className="mt-4 flex items-center gap-4 text-xs text-slate-400 border-t border-slate-100 pt-4">
-                <span className="flex items-center gap-1">
-                  <Eye className="h-3.5 w-3.5" /> {property.viewCount.toLocaleString()} views
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="h-3.5 w-3.5" /> {property.leadCount} enquiries
-                </span>
-                {property.listedAt && (
-                  <span>Listed {new Date(property.listedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+              <h1 className="mt-4 max-w-[28ch] font-display text-[34px] leading-[1.05] text-ink sm:text-[44px]">
+                {property.title}
+              </h1>
+              <p className="mt-3 flex items-start gap-2 text-[15px] text-ink-soft">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-stamp" strokeWidth={1.75} aria-hidden="true" />
+                <span>{property.address}, {property.locality}, {property.city}{property.pincode ? ` ${property.pincode}` : ""}</span>
+              </p>
+
+              {/* Denomination */}
+              <div className="relative mt-8 flex flex-wrap items-end justify-between gap-6 border-y-[3px] border-double border-stamp/50 py-5">
+                <div>
+                  <p className="tabular font-display text-[48px] leading-none text-ink sm:text-[56px]">
+                    {formatPrice(property.price)}
+                    {rental && <span className="ml-1 font-sans text-xl text-ink-soft">/month</span>}
+                  </p>
+                  <p className="mt-2 font-typed text-[13px] capitalize text-ink-soft">{rupeesInWords(property.price)}</p>
+                </div>
+                <div className="tabular text-right text-sm text-ink-soft">
+                  {perSqft && <p>{perSqft}</p>}
+                  {property.isNegotiable && <p className="font-semibold text-stamp-dark">Negotiable</p>}
+                </div>
+                {property.isVerified && (
+                  <Seal className="absolute -top-11 right-0 h-[84px] w-[84px] sm:-top-14 sm:right-6 sm:h-[108px] sm:w-[108px]" size={108} center="Verified" sub="LISTING" title="Verified listing" />
                 )}
               </div>
-            </div>
 
-            {/* Specs grid */}
-            {specs.length > 0 && (
-              <div className="card p-6">
-                <h2 className="text-base font-semibold text-slate-900 mb-4">Property Overview</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {specs.map(({ icon: Icon, label, value }) => (
-                    <div key={label} className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white border border-slate-100">
-                        <Icon className="h-4 w-4 text-brand-500" />
+              {/* Schedule */}
+              {schedule.length > 0 && (
+                <section className="mt-8">
+                  <h2 className="font-display text-2xl text-ink">Schedule of the property</h2>
+                  <dl className="mt-4 grid border-t border-ink/60 sm:grid-cols-2 sm:gap-x-10">
+                    {schedule.map(([label, value]) => (
+                      <div key={label} className="flex items-baseline justify-between gap-4 border-b border-rule py-3">
+                        <dt className="text-sm text-ink-soft">{label}</dt>
+                        <dd className="tabular text-right text-[15px] font-semibold text-ink">{value}</dd>
                       </div>
-                      <div>
-                        <p className="text-xs text-slate-400">{label}</p>
-                        <p className="text-sm font-semibold text-slate-800 capitalize">{value}</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </dl>
+                </section>
+              )}
+
+              {property.description && (
+                <section className="mt-10">
+                  <h2 className="font-display text-2xl text-ink">About this property</h2>
+                  <p className="mt-3 max-w-[68ch] whitespace-pre-line text-[16px] leading-relaxed text-ink">{property.description}</p>
+                </section>
+              )}
+
+              <footer className="mt-10 flex flex-wrap gap-x-6 gap-y-1 border-t border-rule pt-4 text-xs text-ink-faint">
+                {listed && <span>Listed on {listed}</span>}
+                <span className="tabular">{property.viewCount.toLocaleString("en-IN")} {property.viewCount === 1 ? "view" : "views"}</span>
+                <span className="tabular">{property.leadCount.toLocaleString("en-IN")} {property.leadCount === 1 ? "enquiry" : "enquiries"}</span>
+              </footer>
+            </div>
+          </article>
+
+          {/* Contact */}
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="sheet p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-2xl text-ink">Contact the lister</h2>
+                  <p className="mt-1 text-sm text-ink-soft">They get your name and number right away.</p>
                 </div>
+                <SaveButton propertyId={property.id} />
               </div>
-            )}
-
-            {/* Description */}
-            {property.description && (
-              <div className="card p-6">
-                <h2 className="text-base font-semibold text-slate-900 mb-3">About this Property</h2>
-                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                  {property.description}
-                </p>
+              <div className="mt-5">
+                <LeadForm propertyId={property.id} propertyTitle={property.title} />
               </div>
-            )}
-          </div>
-
-          {/* Right: Lead form (sticky) */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24 card p-5">
-              <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <Phone className="h-4 w-4 text-brand-500" />
-                Contact Agent
-              </h2>
-              <LeadForm
-                propertyId={property.id}
-                propertyTitle={property.title}
-              />
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>

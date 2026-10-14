@@ -1,278 +1,208 @@
 import type { Metadata } from "next";
-import React from "react";
 import Link from "next/link";
-import {
-  TrendingUp, Shield, Search, Star, Building2,
-  ArrowRight, CheckCircle, Users, MapPin, Phone,
-} from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
+
 import { HeroSearch } from "@/components/common/HeroSearch";
-import { propertiesService } from "@/services/properties";
 import { PropertyCard } from "@/components/property/PropertyCard";
+import { GuillocheBand, GuillocheFrame, GuillocheRosette } from "@/components/paper/Guilloche";
+import { Seal } from "@/components/paper/Seal";
+import { AffixedFootage } from "@/components/paper/AffixedFootage";
+import { propertiesService } from "@/services/properties";
+import type { PropertyListItem } from "@/types/property";
 
 export const metadata: Metadata = {
-  title: "99acres Clone — India's #1 Real Estate Marketplace",
+  title: { absolute: "Aangan — Homes, plots and offices across India" },
   description:
-    "Find your dream home. Search from millions of verified property listings across India. Apartments, villas, plots, commercial spaces, PG and more.",
+    "Search flats, houses, plots, PG and commercial space for sale or rent across India. See who posted each listing and contact them directly.",
 };
 
-// ─── Data helpers ─────────────────────────────────────────────────────────────
+export const revalidate = 300;
 
-async function getFeaturedProperties() {
+async function getRecentListings(): Promise<PropertyListItem[]> {
   try {
-    const res = await propertiesService.list({
-      listingType: "buy",
-      sortBy: "popular",
-      limit: 6,
-    });
+    const res = await propertiesService.list({ sortBy: "popular", limit: 6 }, { revalidate: 300 });
     return res.data;
   } catch {
     return [];
   }
 }
 
-// ─── Static constants ─────────────────────────────────────────────────────────
-
-const STATS = [
-  { value: "12L+", label: "Properties Listed", icon: Building2 },
-  { value: "4.5L+", label: "Verified Owners", icon: Shield },
-  { value: "100+", label: "Cities Covered", icon: MapPin },
-  { value: "50L+", label: "Happy Families", icon: Users },
+// Placeholder figures kept at the owner's request; not live data.
+const SCHEDULE = [
+  { value: "12L+", label: "properties listed" },
+  { value: "4.5L+", label: "verified owners" },
+  { value: "100+", label: "cities" },
+  { value: "50L+", label: "families housed" },
 ];
 
-const FEATURES = [
-  {
-    icon: Shield,
-    title: "Verified Listings",
-    desc: "Every property goes through a 7-point verification process for a fraud-free experience.",
-  },
-  {
-    icon: Search,
-    title: "Smart Search",
-    desc: "AI-powered search with geospatial filters, map view, and sub-second results.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Price Insights",
-    desc: "Real-time price trends and locality comparisons to help you negotiate better.",
-  },
-  {
-    icon: Phone,
-    title: "Instant Connect",
-    desc: "Direct contact with verified owners and agents — no middlemen, no hidden fees.",
-  },
+const CITIES = [
+  { name: "Mumbai", state: "Maharashtra", count: "3.2L+" },
+  { name: "Bengaluru", state: "Karnataka", count: "2.8L+" },
+  { name: "Delhi NCR", state: "Delhi, Haryana, UP", count: "3.8L+" },
+  { name: "Hyderabad", state: "Telangana", count: "1.9L+" },
+  { name: "Pune", state: "Maharashtra", count: "1.4L+" },
+  { name: "Chennai", state: "Tamil Nadu", count: "1.2L+" },
+  { name: "Kolkata", state: "West Bengal", count: "0.9L+" },
+  { name: "Ahmedabad", state: "Gujarat", count: "0.8L+" },
 ];
 
-const POPULAR_CITIES = [
-  { name: "Mumbai", count: "3.2L+", emoji: "🏙️" },
-  { name: "Bengaluru", count: "2.8L+", emoji: "🌳" },
-  { name: "Delhi NCR", count: "3.8L+", emoji: "🏛️" },
-  { name: "Hyderabad", count: "1.9L+", emoji: "🕌" },
-  { name: "Pune", count: "1.4L+", emoji: "🏘️" },
-  { name: "Chennai", count: "1.2L+", emoji: "🌊" },
-  { name: "Kolkata", count: "0.9L+", emoji: "🎭" },
-  { name: "Ahmedabad", count: "0.8L+", emoji: "🏺" },
+const POPULAR = [
+  { label: "3 BHK in Gurugram", href: "/search?listingType=buy&locality=Gurugram&minBedrooms=3&maxBedrooms=3" },
+  { label: "2 BHK to rent in Bengaluru", href: "/search?listingType=rent&locality=Bengaluru&minBedrooms=2&maxBedrooms=2" },
+  { label: "Villas in Pune", href: "/search?listingType=buy&locality=Pune&propertyType=villa" },
 ];
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+const CLAUSES = [
+  "every listing names who posted it, owner, agent or builder, and the day it went live;",
+  "a listing carries the registry seal only after a moderator has checked it;",
+  "you can narrow by locality, budget, BHK and furnishing, on a list or on a map;",
+  "your enquiry goes straight to the person who listed the home, by phone and email.",
+];
 
 export default async function HomePage() {
-  const featuredProperties = await getFeaturedProperties();
+  const listings = await getRecentListings();
 
   return (
     <>
-      {/* ══ Hero ══════════════════════════════════════════════════════════════ */}
-      <section className="relative min-h-[600px] flex items-center">
-        <div className="container-app relative z-10 py-28">
-          <div className="max-w-3xl mx-auto text-center">
+      {/* ══ The sheet ═════════════════════════════════════════════════════════ */}
+      <section className="container-app pb-14 pt-6 sm:pt-10">
+        <div className="sheet relative overflow-hidden px-6 pb-8 pt-10 sm:px-12 sm:pb-10 sm:pt-14 lg:px-16">
+          <GuillocheFrame />
+          <GuillocheRosette className="pointer-events-none absolute -right-24 -top-24 h-[380px] w-[380px] text-stamp/[0.09]" size={380} />
 
-            {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 glass-card px-4 py-1.5 text-sm text-white/90 mb-6">
-              <Star className="h-3.5 w-3.5 text-orange-400 fill-orange-400" />
-              <span className="drop-shadow-sm">India&apos;s Most Trusted Real Estate Platform</span>
+          <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-16">
+            <div className="min-w-0">
+              <h1 className="max-w-[16ch] font-display text-[44px] leading-[0.98] tracking-[-0.015em] text-ink sm:text-[64px] lg:text-[76px]">
+                Find a home. Talk to whoever listed it.
+              </h1>
+              <p className="mt-5 max-w-[52ch] text-[17px] leading-relaxed text-ink-soft">
+                Flats, houses, plots, PG and offices for sale or rent across India, each with the owner or agent one call away.
+              </p>
+
+              <div className="mt-9 max-w-[720px]">
+                <HeroSearch />
+              </div>
+
+              <p className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-soft">
+                <span>Often searched:</span>
+                {POPULAR.map((p) => (
+                  <Link key={p.href} href={p.href} className="link-ink">
+                    {p.label}
+                  </Link>
+                ))}
+              </p>
             </div>
 
-            {/* Headline */}
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-white drop-shadow-lg mb-4 text-balance">
-              Find Your Perfect{" "}
-              <span className="text-orange-400">Dream Home</span>
-            </h1>
-            <p className="text-lg text-white/80 drop-shadow-sm mb-10 max-w-xl mx-auto text-pretty">
-              Search from <strong className="text-white">12 lakh+</strong> verified
-              properties for sale, rent, and PG across 100+ Indian cities.
-            </p>
-
-            {/* Search box — glass-card container */}
-            <div className="glass-card p-3 mb-6">
-              <HeroSearch />
+            <div className="relative mx-auto hidden w-[260px] rotate-[1.5deg] lg:block lg:w-full">
+              <AffixedFootage src="/assets/hero-bg.mp4" />
+              <Seal
+                className="absolute -bottom-10 -left-12"
+                size={124}
+                center="Verified"
+                sub="LISTINGS"
+                animate
+              />
             </div>
+          </div>
 
-            {/* Popular quick-links */}
-            <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-white/70">
-              <span className="drop-shadow-sm">Popular:</span>
-              {["3 BHK in Gurgaon", "2 BHK in Bangalore", "Villa in Pune"].map((q) => (
-                <Link
-                  key={q}
-                  href={`/search?q=${encodeURIComponent(q)}`}
-                  className="glass-card px-3 py-1 text-xs text-white/80 hover:text-white glass-card-hover"
-                >
-                  {q}
-                </Link>
+          {/* Sheet foot: the schedule */}
+          <div className="relative mt-12">
+            <div className="rule-double" />
+            <dl className="grid grid-cols-2 gap-y-4 pt-5 md:grid-cols-4">
+              {SCHEDULE.map((s, i) => (
+                <div key={s.label} className={`flex items-baseline gap-2 ${i > 0 ? "md:border-l md:border-rule md:pl-6" : ""}`}>
+                  <dt className="sr-only">{s.label}</dt>
+                  <dd className="tabular font-display text-[24px] leading-none text-stamp-dark">{s.value}</dd>
+                  <dd className="text-sm text-ink-soft">{s.label}</dd>
+                </div>
               ))}
-            </div>
+            </dl>
           </div>
         </div>
       </section>
 
-      {/* ══ Stats strip ═══════════════════════════════════════════════════════ */}
-      <section className="glass-nav border-y border-white/10">
-        <div className="container-app py-8">
-          <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {STATS.map(({ value, label, icon: Icon }) => (
-              <div key={label} className="flex items-center gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-500/20 ring-1 ring-orange-400/30">
-                  <Icon className="h-6 w-6 text-orange-400" />
-                </div>
-                <div>
-                  <p className="font-display text-2xl font-bold text-white drop-shadow-sm">{value}</p>
-                  <p className="text-xs text-white/60">{label}</p>
-                </div>
-              </div>
+      {/* ══ Recent listings ═══════════════════════════════════════════════════ */}
+      {listings.length > 0 && (
+        <section className="container-app py-14">
+          <div className="flex items-end justify-between gap-6">
+            <h2 className="font-display text-[34px] leading-tight text-ink sm:text-[40px]">Most viewed this week</h2>
+            <Link href="/search?sortBy=popular" className="hidden items-center gap-1.5 text-sm font-semibold text-seal hover:underline sm:inline-flex">
+              All listings <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {listings.map((p) => (
+              <PropertyCard key={p.id} property={p} />
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ Featured Properties ════════════════════════════════════════════════ */}
-      {featuredProperties.length > 0 && (
-        <section className="py-16">
-          <div className="container-app">
-            <div className="flex items-end justify-between mb-8">
-              <div>
-                <h2 className="font-display text-2xl font-bold text-white drop-shadow-sm">
-                  Featured Properties
-                </h2>
-                <p className="mt-1 text-sm text-white/60">Hand-picked verified listings</p>
-              </div>
-              <Link
-                href="/search?listingType=buy"
-                className="flex items-center gap-1 text-sm font-medium text-orange-400 hover:text-orange-300 transition-colors"
-              >
-                View all <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {featuredProperties.map((property) => (
-                <div
-                  key={property.id}
-                  className="glass-card glass-card-hover overflow-hidden"
-                >
-                  <PropertyCard property={property} />
-                </div>
-              ))}
-            </div>
           </div>
         </section>
       )}
 
-      {/* ══ Browse by City ════════════════════════════════════════════════════ */}
-      <section className="py-16">
-        <div className="container-app">
-          <h2 className="font-display text-2xl font-bold text-white drop-shadow-sm mb-2 text-center">
-            Explore Properties by City
-          </h2>
-          <p className="text-sm text-white/60 mb-10 text-center">
-            Find properties in India&apos;s top real estate markets
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {POPULAR_CITIES.map(({ name, count, emoji }) => (
-              <Link
-                key={name}
-                href={`/search?city=${encodeURIComponent(name)}&listingType=buy`}
-                className="glass-card glass-card-hover group flex flex-col items-center gap-2 p-5"
-              >
-                <span className="text-3xl">{emoji}</span>
-                <p className="font-semibold text-white group-hover:text-orange-400 transition-colors drop-shadow-sm">
-                  {name}
-                </p>
-                <p className="text-xs text-white/50">{count} properties</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ Why Choose Us ════════════════════════════════════════════════════ */}
-      <section className="py-16">
-        <div className="container-app">
-          <div className="text-center mb-12">
-            <h2 className="font-display text-2xl font-bold text-white drop-shadow-sm mb-2">
-              Why 99acres Clone?
-            </h2>
-            <p className="text-sm text-white/60 max-w-md mx-auto">
-              Built for Indian home buyers, renters, and investors with tools
-              you won&apos;t find elsewhere
+      {/* ══ The register of cities ════════════════════════════════════════════ */}
+      <section className="border-y border-rule bg-paper-deep/60 py-16">
+        <div className="container-app grid gap-10 lg:grid-cols-[320px_1fr] lg:gap-16">
+          <div>
+            <h2 className="font-display text-[34px] leading-tight text-ink sm:text-[40px]">Browse by city</h2>
+            <p className="mt-3 max-w-[36ch] text-ink-soft">
+              Start with a city and narrow by locality once you are in.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="glass-card p-6">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-4 bg-orange-500/20 ring-1 ring-orange-400/20">
-                  <Icon className="h-6 w-6 text-orange-400" />
-                </div>
-                <h3 className="font-semibold text-white drop-shadow-sm mb-2">{title}</h3>
-                <p className="text-sm text-white/60 leading-relaxed">{desc}</p>
-              </div>
+          <ol className="grid border-t border-ink/70 sm:grid-cols-2 sm:gap-x-10">
+            {CITIES.map((c) => (
+              <li key={c.name} className="border-b border-rule">
+                <Link
+                  href={`/search?listingType=buy&locality=${encodeURIComponent(c.name.replace(" NCR", ""))}`}
+                  className="group flex items-baseline gap-4 py-4"
+                >
+                  <span className="font-display text-[24px] leading-none text-ink transition-colors group-hover:text-seal">{c.name}</span>
+                  <span className="hidden flex-1 truncate text-sm text-ink-faint md:block">{c.state}</span>
+                  <span className="tabular ml-auto text-sm text-ink-soft">{c.count}</span>
+                  <ArrowUpRight className="h-4 w-4 self-center text-ink-faint transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-seal" aria-hidden="true" />
+                </Link>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
-      {/* ══ Post Property CTA ════════════════════════════════════════════════ */}
-      <section className="py-16">
-        <div className="container-app">
-          <div className="glass-card relative overflow-hidden p-10 sm:p-14 text-center"
-            style={{
-              background: "linear-gradient(135deg, rgba(249,115,22,0.25) 0%, rgba(234,88,12,0.15) 100%)",
-            }}
-          >
-            {/* Decorative blobs */}
-            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-orange-500/15 blur-3xl" aria-hidden="true" />
-            <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-orange-400/10 blur-2xl" aria-hidden="true" />
+      {/* ══ Whereas ═══════════════════════════════════════════════════════════ */}
+      <section className="container-app py-20">
+        <div className="mx-auto max-w-[860px]">
+          <h2 className="font-display text-[34px] leading-tight text-ink sm:text-[40px]">How a listing reaches you</h2>
+          <ol className="mt-8 space-y-5">
+            {CLAUSES.map((text) => (
+              <li key={text} className="grid grid-cols-[92px_1fr] gap-4 text-[17px] leading-relaxed sm:grid-cols-[120px_1fr]">
+                <span className="font-typed text-[13px] font-bold uppercase tracking-[0.18em] text-stamp pt-1">Whereas</span>
+                <span className="text-ink">{text}</span>
+              </li>
+            ))}
+            <li className="grid grid-cols-[92px_1fr] gap-4 border-t border-rule pt-5 text-[17px] sm:grid-cols-[120px_1fr]">
+              <span className="font-typed text-[13px] font-bold uppercase tracking-[0.18em] text-seal pt-1">Therefore</span>
+              <span className="text-ink">
+                start with a locality.{" "}
+                <Link href="/search" className="link-ink font-semibold">Open the full search</Link>
+              </span>
+            </li>
+          </ol>
+        </div>
+      </section>
 
-            <div className="relative z-10">
-              <p className="text-sm font-semibold text-orange-300 uppercase tracking-wide mb-3">
-                Post your property
-              </p>
-              <h2 className="font-display text-3xl sm:text-4xl font-bold text-white drop-shadow-md mb-4 text-balance">
-                List Your Property for FREE
-              </h2>
-              <p className="text-white/80 mb-8 max-w-md mx-auto drop-shadow-sm">
-                Reach 50 lakh+ active property seekers. Get genuine leads
-                directly to your phone.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Link
-                  href="/dashboard/post-property"
-                  id="home-post-property-btn"
-                  className="glass-button inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-base font-bold shadow-xl"
-                >
-                  Post Property FREE
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
-                <div className="flex items-center gap-4 text-white/70 text-sm">
-                  {["No Hidden Fees", "Verified Buyers", "Instant Leads"].map((t) => (
-                    <span key={t} className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4 text-orange-400/70" />
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+      {/* ══ For listers ═══════════════════════════════════════════════════════ */}
+      <section className="bg-stamp-dark text-paper">
+        <GuillocheBand className="h-6 w-full text-paper/20" height={24} />
+        <div className="container-app grid items-center gap-10 py-16 lg:grid-cols-[1fr_auto]">
+          <div>
+            <h2 className="max-w-[20ch] font-display text-[36px] leading-[1.05] sm:text-[48px]">
+              Letting or selling? Post it here at no cost.
+            </h2>
+            <p className="mt-4 max-w-[56ch] text-[17px] text-paper/75">
+              Add the details and photos, a moderator reviews it, and enquiries arrive in your dashboard with the buyer&apos;s number.
+            </p>
           </div>
+          <Link href="/dashboard/post-property" className="btn-seal !bg-paper-sheet !px-7 !py-3.5 !text-seal-dark hover:!bg-white">
+            Post a property
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
         </div>
       </section>
     </>

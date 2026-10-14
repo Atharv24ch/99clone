@@ -37,6 +37,8 @@ export const users = pgTable(
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }),
     avatarUrl: text("avatar_url"),
+    // scrypt hash ("salt:hash", hex). Null for accounts without a password.
+    passwordHash: text("password_hash"),
     role: userRoleEnum("role").notNull().default("buyer"),
     status: userStatusEnum("status").notNull().default("active"),
     isPhoneVerified: boolean("is_phone_verified").notNull().default(false),

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { db, localities } from "@99acres/db";
-import { ilike, eq, desc } from "drizzle-orm";
+import { and, desc, ilike } from "drizzle-orm";
 
 export async function localitiesRoutes(fastify: FastifyInstance): Promise<void> {
 
@@ -12,7 +12,7 @@ export async function localitiesRoutes(fastify: FastifyInstance): Promise<void> 
       limit?: string;
     };
 
-    const limitNum = Math.min(20, parseInt(limit, 10));
+    const limitNum = Math.min(20, Math.max(1, parseInt(limit, 10) || 10));
     const conditions = [];
 
     if (q) conditions.push(ilike(localities.name, `%${q}%`));
@@ -29,7 +29,7 @@ export async function localitiesRoutes(fastify: FastifyInstance): Promise<void> 
         propertyCount: localities.propertyCount,
       })
       .from(localities)
-      .where(conditions.length > 0 ? conditions[0] : undefined)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(localities.propertyCount))
       .limit(limitNum);
 

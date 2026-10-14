@@ -1,7 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import fastifyCors from "@fastify/cors";
+import fp from "fastify-plugin";
 
-export async function corsPlugin(fastify: FastifyInstance): Promise<void> {
+async function cors(fastify: FastifyInstance): Promise<void> {
   // In production, read allowed origins from the ALLOWED_ORIGIN env var.
   // Set ALLOWED_ORIGIN to your deployed Vercel frontend URL (comma-separated for multiple).
   const productionOrigins = process.env["ALLOWED_ORIGIN"]
@@ -19,3 +20,6 @@ export async function corsPlugin(fastify: FastifyInstance): Promise<void> {
     maxAge: 86400,
   });
 }
+
+// fastify-plugin lifts CORS out of its encapsulated scope so it covers every route
+export const corsPlugin = fp(cors, { name: "cors" });

@@ -1,6 +1,49 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { db, localities, properties } from "@99acres/db";
+import { and, desc, eq, ilike, isNull, sql } from "drizzle-orm";
+
 import { opensearch, PROPERTY_INDEX } from "../config/opensearch.js";
+
+/**
+ * Postgres fallback for autocomplete when OpenSearch is unavailable.
+ */
+async function suggestFromDb(q: string) {
+  const pattern = `${q}%`;
+  const live = and(eq(properties.status, "active"), isNull(properties.deletedAt));
+  const [locs, cities] = await Promise.all([
+    db
+      .select({ label: properties.locality, count: sql<number>`count(*)` })
+      .from(properties)
+      .where(and(ilike(properties.locality, pattern), live))
+      .groupBy(properties.locality)
+      .orderBy(desc(sql`count(*)`))
+      .limit(8),
+    db
+      .select({ label: properties.city, count: sql<number>`count(*)` })
+      .from(properties)
+      .where(and(ilike(properties.city, pattern), live))
+      .groupBy(properties.city)
+      .orderBy(desc(sql`count(*)`))
+      .limit(4),
+  ]);
+
+  // Fall back to the localities master when no live listings match yet
+  const master = locs.length + cities.length > 0
+    ? []
+    : await db
+        .select({ label: localities.name })
+        .from(localities)
+        .where(ilike(localities.name, pattern))
+        .orderBy(desc(localities.propertyCount))
+        .limit(8);
+
+  return [
+    ...locs.map((l) => ({ label: l.label, type: "locality" as const, count: Number(l.count) })),
+    ...cities.map((c) => ({ label: c.label, type: "city" as const, count: Number(c.count) })),
+    ...master.map((m) => ({ label: m.label, type: "locality" as const, count: 0 })),
+  ];
+}
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -131,12 +174,15 @@ export async function searchRoutes(fastify: FastifyInstance): Promise<void> {
 
   // GET /api/v1/search/suggest — locality / city autocomplete
   fastify.get("/suggest", async (request, reply) => {
-    const { q } = request.query as { q?: string };
-    if (!q || q.length < 2) {
+    const raw = (request.query as { q?: string }).q;
+    const q = typeof raw === "string" ? raw.trim().slice(0, 64) : "";
+    if (q.length < 2) {
       return reply.send({ data: [] });
     }
 
-    const response = await opensearch.search({
+    let response;
+    try {
+      response = await opensearch.search({
       index: PROPERTY_INDEX,
       body: {
         size: 0,
@@ -158,6 +204,10 @@ export async function searchRoutes(fastify: FastifyInstance): Promise<void> {
         },
       },
     });
+    } catch (err) {
+      request.log.warn({ err }, "OpenSearch suggest failed; using Postgres fallback");
+      return reply.send({ data: await suggestFromDb(q) });
+    }
 
     const aggs = response.body.aggregations;
     type TermBucket = { key: string; doc_count: number };

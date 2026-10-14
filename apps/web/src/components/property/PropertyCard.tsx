@@ -1,157 +1,148 @@
-import React from "react";
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import {
-  MapPin, BedDouble, Bath, Maximize2, Shield, Star, Zap,
-} from "lucide-react";
+import { Bookmark } from "lucide-react";
+
 import type { PropertyListItem } from "@/types/property";
-import { formatPrice, formatArea } from "@/types/property";
+import {
+  formatArea,
+  formatListingPrice,
+  listingRef,
+  pricePerSqft,
+  FURNISHING_LABEL,
+  LISTING_TYPE_LABEL,
+  POSSESSION_LABEL,
+  PROPERTY_TYPE_LABEL,
+  isRental,
+} from "@/types/property";
+import { SealMark } from "@/components/paper/Seal";
+import { GuillocheRosette } from "@/components/paper/Guilloche";
+import { useSavedProperties } from "@/hooks/useSavedProperties";
 
 interface PropertyCardProps {
   property: PropertyListItem;
-  compact?: boolean;
+  /** Horizontal row layout for the list+map view. */
+  layout?: "slip" | "row";
+  selected?: boolean;
+  onSelect?: () => void;
   className?: string;
-  onClick?: () => void;
 }
 
-export function PropertyCard({ property, compact = false, className = "" }: PropertyCardProps) {
-  const coverImage = property.images?.[0];
-  const bhkLabel = property.bedrooms
-    ? `${property.bedrooms} BHK`
-    : property.propertyType === "plot"
-    ? "Plot"
-    : property.propertyType.replace(/_/g, " ");
+export function PropertyCard({ property, layout = "slip", selected = false, onSelect, className = "" }: PropertyCardProps) {
+  const { isSaved, toggle } = useSavedProperties();
+  const saved = isSaved(property.id);
+  const cover = property.images?.[0];
+  const config = property.bedrooms ? `${property.bedrooms} BHK` : null;
+  const typeLabel = PROPERTY_TYPE_LABEL[property.propertyType] ?? property.propertyType;
+  const perSqft = !isRental(property.listingType) ? pricePerSqft(property.price, property.builtUpArea) : null;
 
-  const possessionLabel = property.possessionStatus === "ready_to_move"
-    ? "Ready to Move"
-    : property.possessionStatus === "under_construction"
-    ? "Under Construction"
-    : property.possessionStatus === "new_launch"
-    ? "New Launch"
-    : null;
+  const specs = [
+    config,
+    property.bathrooms ? `${property.bathrooms} bath` : null,
+    property.builtUpArea ? formatArea(property.builtUpArea) : null,
+    property.furnishingStatus ? FURNISHING_LABEL[property.furnishingStatus] : null,
+  ].filter(Boolean) as string[];
+
+  const row = layout === "row";
 
   return (
-    <Link
-      href={`/property/${property.slug}`}
+    <article
+      id={`listing-${property.id}`}
+      onMouseEnter={onSelect}
+      onFocus={onSelect}
       className={[
-        "group block rounded-2xl border border-slate-100 bg-white overflow-hidden",
-        "shadow-card hover:shadow-card-hover hover:-translate-y-0.5",
-        "transition-all duration-250 ease-out cursor-pointer",
+        "group relative flex overflow-hidden rounded-sheet border bg-paper-sheet transition-[box-shadow,border-color] duration-200",
+        row ? "flex-row" : "flex-col",
+        selected ? "border-seal shadow-lift" : "border-rule hover:border-stamp-light hover:shadow-lift",
         className,
       ].join(" ")}
-      aria-label={`${property.title} - ${formatPrice(property.price)}`}
     >
-      {/* Image */}
-      <div className="relative overflow-hidden bg-slate-100" style={{ aspectRatio: "16/10" }}>
-        {coverImage ? (
+      {/* Photograph */}
+      <div className={`relative shrink-0 overflow-hidden bg-paper-deep ${row ? "w-40 sm:w-52" : "aspect-[4/3] w-full"}`}>
+        {cover ? (
           <Image
-            src={coverImage.thumbnailUrl ?? coverImage.cdnUrl}
-            alt={property.title}
+            src={cover.thumbnailUrl ?? cover.cdnUrl}
+            alt=""
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            unoptimized
+            sizes={row ? "208px" : "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"}
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center text-slate-400">
-              <Maximize2 className="mx-auto h-8 w-8 mb-1 opacity-30" />
-              <p className="text-xs">No photo</p>
-            </div>
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-stamp/45">
+            <GuillocheRosette className="h-20 w-20" size={160} />
+            <span className="field-label !text-ink-faint">Photos awaited</span>
           </div>
         )}
-
-        {/* Badges overlay */}
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-          {property.isFeatured && (
-            <span className="flex items-center gap-1 rounded-lg bg-brand-500 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
-              <Star className="h-3 w-3 fill-white" /> Featured
-            </span>
-          )}
-          {property.isVerified && (
-            <span className="flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
-              <Shield className="h-3 w-3 fill-white stroke-none" /> Verified
-            </span>
-          )}
-          {possessionLabel && (
-            <span className="rounded-lg bg-black/60 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-              {possessionLabel}
-            </span>
-          )}
-        </div>
-
-        {/* Listing type tag */}
-        <div className="absolute right-3 top-3">
-          <span className="rounded-lg bg-white/90 px-2 py-0.5 text-xs font-semibold text-slate-700 capitalize backdrop-blur-sm">
-            {property.listingType === "buy" ? "Sale" : property.listingType === "rent" ? "Rent" : property.listingType.replace(/_/g, " ")}
-          </span>
-        </div>
+        <span className="absolute left-0 top-3 bg-ink/85 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-paper-sheet">
+          {LISTING_TYPE_LABEL[property.listingType]}
+        </span>
       </div>
 
-      {/* Content */}
-      <div className={compact ? "p-3" : "p-4"}>
-        {/* Price */}
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="font-display text-xl font-bold text-slate-900">
-            {formatPrice(property.price)}
-          </p>
-          {property.builtUpArea && (
-            <p className="text-xs text-slate-400 flex-shrink-0">
-              ₹{Math.round(Number(property.price) / Number(property.builtUpArea)).toLocaleString("en-IN")}/sqft
-            </p>
-          )}
+      {/* Slip */}
+      <div className={`flex min-w-0 flex-1 flex-col ${row ? "p-4" : "p-4 pt-3.5"}`}>
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-typed text-[11px] tracking-wide text-ink-faint">{listingRef(property.id)}</span>
+          {property.isVerified && <SealMark />}
         </div>
 
-        {/* Title */}
-        <h3 className="mt-1 text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">
-          {property.title}
-        </h3>
+        <p className="tabular mt-2 font-display text-[26px] leading-none text-ink">
+          {formatListingPrice(property.price, property.listingType)}
+        </p>
+        {perSqft && <p className="tabular mt-1 text-xs text-ink-soft">{perSqft}</p>}
 
-        {/* Location */}
-        <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-500">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-brand-400" />
-          {property.locality}, {property.city}
+        <h3 className="mt-2.5 line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
+          <Link
+            href={`/property/${property.slug}`}
+            className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
+          >
+            {property.title}
+          </Link>
+        </h3>
+        <p className="mt-1 truncate text-sm text-ink-soft">
+          {typeLabel} in {property.locality}, {property.city}
         </p>
 
-        {/* Config chips */}
-        <div className="mt-3 flex items-center gap-2">
-          {property.bedrooms !== null && (
-            <span className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-              <BedDouble className="h-3.5 w-3.5 text-slate-500" />
-              {property.bedrooms} BHK
-            </span>
-          )}
-          {property.bathrooms !== null && (
-            <span className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-              <Bath className="h-3.5 w-3.5 text-slate-500" />
-              {property.bathrooms}
-            </span>
-          )}
-          {property.builtUpArea && (
-            <span className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-              <Maximize2 className="h-3.5 w-3.5 text-slate-500" />
-              {formatArea(property.builtUpArea)}
-            </span>
-          )}
-          {property.furnishingStatus && (
-            <span className="flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hidden lg:flex">
-              <Zap className="h-3.5 w-3.5 text-slate-500" />
-              {property.furnishingStatus.replace(/_/g, " ")}
-            </span>
-          )}
-        </div>
+        {specs.length > 0 && (
+          <p className="tabular mt-3 border-t border-dashed border-rule pt-2.5 text-[13px] text-ink-soft">
+            {specs.join("  ·  ")}
+          </p>
+        )}
 
-        {/* Footer */}
-        <div className="mt-3 flex items-center justify-between border-t border-slate-50 pt-3">
-          <p className="text-xs text-slate-400">
+        <div className="mt-auto flex items-center justify-between pt-3 text-xs text-ink-faint">
+          <span>
+            {property.possessionStatus ? POSSESSION_LABEL[property.possessionStatus] : ""}
+            {property.possessionStatus && property.listedAt ? " · " : ""}
             {property.listedAt
               ? `Listed ${new Date(property.listedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
-              : "Just listed"}
-          </p>
-          <span className="text-xs font-medium text-brand-500 group-hover:underline">
-            View Details →
+              : ""}
           </span>
+          <button
+            type="button"
+            onClick={() => toggle(property.id)}
+            aria-pressed={saved}
+            aria-label={saved ? "Remove from saved" : "Save listing"}
+            className={`relative z-10 -m-1.5 rounded-sheet p-1.5 transition-colors hover:bg-paper-deep ${saved ? "text-seal" : "text-ink-faint hover:text-ink"}`}
+          >
+            <Bookmark className="h-[18px] w-[18px]" strokeWidth={1.75} fill={saved ? "currentColor" : "none"} aria-hidden="true" />
+          </button>
         </div>
       </div>
-    </Link>
+    </article>
+  );
+}
+
+export function PropertyCardSkeleton({ layout = "slip" }: { layout?: "slip" | "row" }) {
+  return (
+    <div className={`flex overflow-hidden rounded-sheet border border-rule bg-paper-sheet ${layout === "row" ? "flex-row" : "flex-col"}`} aria-hidden="true">
+      <div className={`skeleton !rounded-none ${layout === "row" ? "h-40 w-40 sm:w-52" : "aspect-[4/3] w-full"}`} />
+      <div className="flex-1 space-y-3 p-4">
+        <div className="skeleton h-3 w-24" />
+        <div className="skeleton h-7 w-32" />
+        <div className="skeleton h-4 w-full" />
+        <div className="skeleton h-4 w-2/3" />
+      </div>
+    </div>
   );
 }

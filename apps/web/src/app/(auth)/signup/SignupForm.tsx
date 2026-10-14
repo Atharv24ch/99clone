@@ -1,171 +1,148 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { User, Mail, Phone, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+
 import { useAuthStore } from "@/store/authStore";
-import { apiFetch } from "@/services/api";
-import type { User as UserType } from "@/types/user";
+import { accountService } from "@/services/properties";
+import { errorMessage } from "@/services/api";
+import { safeNext } from "@/lib/safeNext";
 
 const ROLES = [
-  { value: "buyer", label: "Buyer / Tenant", desc: "Looking to buy or rent" },
-  { value: "seller", label: "Owner / Seller", desc: "Listing my property" },
-  { value: "agent", label: "Agent / Broker", desc: "Real estate professional" },
-  { value: "builder", label: "Builder / Developer", desc: "Building projects" },
-];
+  { value: "buyer", label: "Buying or renting" },
+  { value: "seller", label: "Owner" },
+  { value: "agent", label: "Agent or broker" },
+  { value: "builder", label: "Builder" },
+] as const;
+
+type Role = (typeof ROLES)[number]["value"];
 
 export function SignupForm() {
   const router = useRouter();
-  const { setAuth } = useAuthStore();
-  const [form, setForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "", role: "buyer", password: "",
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const next = safeNext(useSearchParams().get("next"));
+  const setAuth = useAuthStore((s) => s.setAuth);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    role: "buyer" as Role,
+  });
+  const [show, setShow] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!form.firstName) errs["firstName"] = "First name is required";
-    if (!form.email && !form.phone) errs["email"] = "Email or phone is required";
-    if (form.password && form.password.length < 8) errs["password"] = "Password must be 8+ characters";
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    setErrors({});
-    setIsLoading(true);
+    if (!form.firstName.trim()) errs["firstName"] = "Enter your first name";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs["email"] = "Enter a valid email address";
+    if (form.phone && !/^\+?[\d\s\-()]{8,20}$/.test(form.phone.trim())) errs["phone"] = "Enter a phone number with at least 8 digits";
+    if (form.password.length < 8) errs["password"] = "Use at least 8 characters";
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
 
+    setLoading(true);
     try {
-      const res = await apiFetch<{ data: { user: UserType; token: string } }>("/api/v1/auth/register", {
-        method: "POST",
-        body: JSON.stringify(form),
+      const res = await accountService.register({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim() || undefined,
+        email: form.email.trim(),
+        phone: form.phone.trim() || undefined,
+        password: form.password,
+        role: form.role,
       });
       setAuth(res.data.user, res.data.token);
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      const apiErr = err as { message?: string };
-      setErrors({ submit: apiErr.message ?? "Registration failed. Please try again." });
-    } finally {
-      setIsLoading(false);
+      router.replace(next);
+    } catch (err) {
+      setErrors({ submit: errorMessage(err, "We couldn't create your account. Please try again.") });
+      setLoading(false);
     }
   };
 
+  const err = (key: string) =>
+    errors[key] ? <p id={`signup-${key}-err`} className="mt-1 text-xs text-danger">{errors[key]}</p> : null;
+
   return (
-    <div className="card p-8">
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        {/* Role selection */}
-        <div>
-          <p className="text-xs font-medium text-slate-600 mb-2">I am a...</p>
-          <div className="grid grid-cols-2 gap-2">
-            {ROLES.map((role) => (
-              <button
-                key={role.value}
-                type="button"
-                id={`role-${role.value}`}
-                onClick={() => setForm((f) => ({ ...f, role: role.value }))}
-                className={[
-                  "rounded-xl border p-3 text-left transition-all",
-                  form.role === role.value
-                    ? "border-brand-400 bg-brand-50"
-                    : "border-slate-200 hover:border-slate-300",
-                ].join(" ")}
-              >
-                <p className={`text-xs font-semibold ${form.role === role.value ? "text-brand-700" : "text-slate-800"}`}>
-                  {role.label}
-                </p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{role.desc}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Name */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="signup-firstname" className="block text-xs font-medium text-slate-600 mb-1.5">
-              First Name *
-            </label>
-            <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input id="signup-firstname" type="text" value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                placeholder="Rahul" className={`input-base pl-10 ${errors["firstName"] ? "border-red-400" : ""}`} />
-            </div>
-            {errors["firstName"] && <p className="mt-1 text-xs text-red-500">{errors["firstName"]}</p>}
-          </div>
-          <div>
-            <label htmlFor="signup-lastname" className="block text-xs font-medium text-slate-600 mb-1.5">
-              Last Name
-            </label>
-            <input id="signup-lastname" type="text" value={form.lastName}
-              onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-              placeholder="Sharma" className="input-base" />
-          </div>
-        </div>
-
-        {/* Email */}
-        <div>
-          <label htmlFor="signup-email" className="block text-xs font-medium text-slate-600 mb-1.5">Email</label>
-          <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input id="signup-email" type="email" value={form.email}
-              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-              placeholder="you@example.com"
-              className={`input-base pl-10 ${errors["email"] ? "border-red-400" : ""}`} />
-          </div>
-          {errors["email"] && <p className="mt-1 text-xs text-red-500">{errors["email"]}</p>}
-        </div>
-
-        {/* Phone */}
-        <div>
-          <label htmlFor="signup-phone" className="block text-xs font-medium text-slate-600 mb-1.5">
-            Phone Number
-          </label>
-          <div className="relative">
-            <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input id="signup-phone" type="tel" value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              placeholder="+91 98765 43210"
-              className="input-base pl-10" />
-          </div>
-        </div>
-
-        {/* Password */}
-        <div>
-          <label htmlFor="signup-password" className="block text-xs font-medium text-slate-600 mb-1.5">
-            Password (optional for social login)
-          </label>
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input id="signup-password" type={showPassword ? "text" : "password"} value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              placeholder="Min. 8 characters"
-              className={`input-base pl-10 pr-10 ${errors["password"] ? "border-red-400" : ""}`} />
-            <button type="button" onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    <form onSubmit={onSubmit} className="space-y-6" noValidate>
+      <fieldset>
+        <legend className="field-label">I am</legend>
+        <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup">
+          {ROLES.map((r) => (
+            <button
+              key={r.value}
+              type="button"
+              role="radio"
+              aria-checked={form.role === r.value}
+              onClick={() => setForm((f) => ({ ...f, role: r.value }))}
+              className="chip !justify-start !py-2"
+            >
+              {r.label}
             </button>
-          </div>
-          {errors["password"] && <p className="mt-1 text-xs text-red-500">{errors["password"]}</p>}
+          ))}
         </div>
+      </fieldset>
 
-        {errors["submit"] && (
-          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{errors["submit"]}</p>
-        )}
+      <div className="grid grid-cols-2 gap-5">
+        <div>
+          <label htmlFor="signup-firstName" className="field-label">First name</label>
+          <input id="signup-firstName" autoComplete="given-name" value={form.firstName} onChange={set("firstName")}
+            aria-invalid={!!errors["firstName"]} aria-describedby={errors["firstName"] ? "signup-firstName-err" : undefined} className="input-line" />
+          {err("firstName")}
+        </div>
+        <div>
+          <label htmlFor="signup-lastName" className="field-label">Last name</label>
+          <input id="signup-lastName" autoComplete="family-name" value={form.lastName} onChange={set("lastName")} className="input-line" />
+        </div>
+      </div>
 
-        <button type="submit" disabled={isLoading} id="signup-submit-btn" className="btn-brand w-full gap-2 disabled:opacity-60">
-          {isLoading
-            ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            : <ArrowRight className="h-4 w-4" />
-          }
-          {isLoading ? "Creating account..." : "Create Account"}
-        </button>
+      <div>
+        <label htmlFor="signup-email" className="field-label">Email</label>
+        <input id="signup-email" type="email" autoComplete="email" value={form.email} onChange={set("email")}
+          aria-invalid={!!errors["email"]} aria-describedby={errors["email"] ? "signup-email-err" : undefined}
+          placeholder="you@example.com" className="input-line" />
+        {err("email")}
+      </div>
 
-        <p className="text-center text-xs text-slate-400">
-          By signing up, you agree to our{" "}
-          <a href="/terms" className="text-brand-500 hover:underline">Terms</a> and{" "}
-          <a href="/privacy" className="text-brand-500 hover:underline">Privacy Policy</a>
+      <div>
+        <label htmlFor="signup-phone" className="field-label">Phone (optional)</label>
+        <input id="signup-phone" type="tel" inputMode="tel" autoComplete="tel" value={form.phone} onChange={set("phone")}
+          aria-invalid={!!errors["phone"]} aria-describedby={errors["phone"] ? "signup-phone-err" : undefined}
+          placeholder="+91 98765 43210" className="input-line" />
+        {err("phone")}
+      </div>
+
+      <div>
+        <label htmlFor="signup-password" className="field-label">Password</label>
+        <div className="relative">
+          <input id="signup-password" type={show ? "text" : "password"} autoComplete="new-password" value={form.password} onChange={set("password")}
+            aria-invalid={!!errors["password"]} aria-describedby="signup-password-hint" className="input-line pr-9" />
+          <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-ink-faint hover:text-ink"
+            aria-label={show ? "Hide password" : "Show password"}>
+            {show ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </div>
+        <p id="signup-password-hint" className={`mt-1 text-xs ${errors["password"] ? "text-danger" : "text-ink-faint"}`}>
+          {errors["password"] ?? "At least 8 characters"}
         </p>
-      </form>
-    </div>
+      </div>
+
+      {errors["submit"] && (
+        <p role="alert" className="rounded-sheet border border-danger/30 bg-danger/5 px-3 py-2.5 text-sm text-danger">
+          {errors["submit"]}
+        </p>
+      )}
+
+      <button type="submit" disabled={loading} className="btn-seal w-full !py-3">
+        {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        {loading ? "Creating account" : "Create account"}
+      </button>
+    </form>
   );
 }

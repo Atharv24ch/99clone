@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist, devtools } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 
 import type { User } from "@/types/user";
 
@@ -7,46 +7,41 @@ interface AuthStoreState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
+  /** True once persisted state has been read from localStorage. */
+  hasHydrated: boolean;
 
-  // Actions
   setAuth: (user: User, token: string) => void;
   clearAuth: () => void;
-  setLoading: (loading: boolean) => void;
   updateUser: (partial: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthStoreState>()(
-  devtools(
-    persist(
-      (set) => ({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false,
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      hasHydrated: false,
 
-        setAuth: (user, token) =>
-          set({ user, token, isAuthenticated: true, isLoading: false }),
+      setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
 
-        clearAuth: () =>
-          set({ user: null, token: null, isAuthenticated: false }),
+      clearAuth: () => set({ user: null, token: null, isAuthenticated: false }),
 
-        setLoading: (loading) => set({ isLoading: loading }),
-
-        updateUser: (partial) =>
-          set((state) =>
-            state.user ? { user: { ...state.user, ...partial } } : {}
-          ),
+      updateUser: (partial) =>
+        set((state) => (state.user ? { user: { ...state.user, ...partial } } : {})),
+    }),
+    {
+      name: "aangan-auth",
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated,
       }),
-      {
-        name: "acres99-auth",
-        partialize: (state) => ({
-          user: state.user,
-          token: state.token,
-          isAuthenticated: state.isAuthenticated,
-        }),
-      }
-    ),
-    { name: "AuthStore" }
+      // localStorage rehydrates synchronously inside create(), before
+      // useAuthStore is assigned, so defer the flag by a microtask.
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => useAuthStore.setState({ hasHydrated: true }));
+      },
+    }
   )
 );

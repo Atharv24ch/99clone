@@ -17,12 +17,21 @@ interface NotificationJobData {
   message?: string;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Send SMS via a provider (Twilio/Fast2SMS/MSG91).
  * Stub implementation — replace with actual SDK call.
  */
 async function sendSms(phone: string, message: string): Promise<void> {
-  if (process.env["NODE_ENV"] === "development") {
+  if (process.env["NODE_ENV"] !== "production" || !process.env["SMS_PROVIDER"]) {
     console.log(`📱 [SMS STUB] To: ${phone}\n   Message: ${message}`);
     return;
   }
@@ -35,7 +44,7 @@ async function sendSms(phone: string, message: string): Promise<void> {
  * Stub implementation — replace with actual SDK call.
  */
 async function sendEmail(to: string, subject: string, body: string): Promise<void> {
-  if (process.env["NODE_ENV"] === "development") {
+  if (process.env["NODE_ENV"] !== "production" || !process.env["EMAIL_PROVIDER"]) {
     console.log(`📧 [EMAIL STUB] To: ${to}\n   Subject: ${subject}\n   Body: ${body}`);
     return;
   }
@@ -56,7 +65,7 @@ const notificationWorker = new Worker<NotificationJobData>(
         const emailSubject = `New Lead: ${buyerName ?? "Buyer"} is interested in your property`;
         const emailBody = `
           <p>Dear Agent,</p>
-          <p>You have received a new enquiry from <strong>${buyerName}</strong> (${buyerPhone}).</p>
+          <p>You have received a new enquiry from <strong>${escapeHtml(buyerName ?? "a buyer")}</strong> (${escapeHtml(buyerPhone ?? "N/A")}).</p>
           <p>Log in to your dashboard to view details and contact the buyer.</p>
         `;
 
@@ -72,7 +81,7 @@ const notificationWorker = new Worker<NotificationJobData>(
         if (userEmail) {
           await sendEmail(
             userEmail,
-            "Your property listing is live! 🎉",
+            "Your property listing is live",
             message ?? "Your property has been approved and is now live."
           );
         }

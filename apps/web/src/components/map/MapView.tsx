@@ -1,139 +1,132 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Map as MapboxMap, Marker } from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+
 import type { PropertyListItem } from "@/types/property";
-import { formatPrice } from "@/types/property";
+import { formatListingPrice } from "@/types/property";
 
 interface MapViewProps {
   properties: PropertyListItem[];
-  center?: [number, number]; // [lng, lat]
-  zoom?: number;
-  onPropertyClick?: (property: PropertyListItem) => void;
+  selectedId?: string | null;
+  onSelect?: (property: PropertyListItem) => void;
   className?: string;
 }
 
+const TOKEN = process.env["NEXT_PUBLIC_MAPBOX_TOKEN"] ?? "";
+const HAS_TOKEN = TOKEN.startsWith("pk.") && !TOKEN.includes("your-");
+const INDIA_CENTER: [number, number] = [78.9629, 22.5937];
+
+function priceTag(prop: PropertyListItem): HTMLButtonElement {
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className =
+    "map-tag tabular whitespace-nowrap rounded-[3px] border border-ink/70 bg-[rgb(var(--sheet))] px-2 py-1 text-[12px] font-semibold text-[rgb(var(--ink))] shadow-sm transition-colors";
+  el.textContent = formatListingPrice(prop.price, prop.listingType);
+  el.setAttribute("aria-label", `${prop.title}, ${el.textContent}`);
+  return el;
+}
+
 /**
- * MapView — Mapbox GL JS integration.
- * Loaded dynamically (mapbox-gl is browser-only).
- * Renders property markers with popup previews.
+ * MapView — Mapbox GL with price tags. Selecting a listing (here or in the
+ * list) isolates its tag and dims the rest.
  */
-export function MapView({
-  properties,
-  center = [77.2090, 28.6139], // Default: New Delhi
-  zoom = 11,
-  onPropertyClick,
-  className = "",
-}: MapViewProps) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<unknown>(null);
-  const markersRef = useRef<unknown[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+export function MapView({ properties, selectedId, onSelect, className = "" }: MapViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapboxMap | null>(null);
+  const markersRef = useRef<Map<string, { marker: Marker; el: HTMLButtonElement }>>(new Map());
+  const onSelectRef = useRef(onSelect);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  onSelectRef.current = onSelect;
 
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (!HAS_TOKEN || !containerRef.current) return;
+    let cancelled = false;
 
-    // Dynamically import mapbox-gl to avoid SSR issues
-    import("mapbox-gl").then((mapboxgl) => {
-      const MapboxGL = mapboxgl.default;
-      MapboxGL.accessToken = process.env["NEXT_PUBLIC_MAPBOX_TOKEN"] ?? "";
+    import("mapbox-gl")
+      .then(({ default: mapboxgl }) => {
+        if (cancelled || !containerRef.current) return;
+        mapboxgl.accessToken = TOKEN;
+        const map = new mapboxgl.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/light-v11",
+          center: INDIA_CENTER,
+          zoom: 4,
+          attributionControl: true,
+        });
+        map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+        map.on("load", () => !cancelled && setReady(true));
+        map.on("error", () => !cancelled && setFailed(true));
+        mapRef.current = map;
+      })
+      .catch(() => setFailed(true));
 
-      const map = new MapboxGL.Map({
-        container: mapContainerRef.current!,
-        style: "mapbox://styles/mapbox/light-v11",
-        center,
-        zoom,
-        attributionControl: false,
-      });
-
-      map.addControl(new MapboxGL.NavigationControl(), "top-right");
-      map.addControl(new MapboxGL.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-      }), "top-right");
-
-      map.on("load", () => {
-        setIsLoaded(true);
-      });
-
-      mapRef.current = map;
-      // Return cleanup; map.remove() handles teardown
-      return () => { (mapRef.current as { remove: () => void } | null)?.remove(); };
-    }).catch(console.error);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
   }, []);
 
-  // Add/update markers when properties change
+  // Sync markers with the current results
   useEffect(() => {
-    if (!mapRef.current || !isLoaded) return;
+    const map = mapRef.current;
+    if (!map || !ready) return;
 
-    import("mapbox-gl").then((mapboxgl) => {
-      const MapboxGL = mapboxgl.default;
-      const map = mapRef.current as InstanceType<typeof MapboxGL.Map>;
+    void import("mapbox-gl").then(({ default: mapboxgl }) => {
+      markersRef.current.forEach(({ marker }) => marker.remove());
+      markersRef.current.clear();
 
-      // Remove old markers
-      (markersRef.current as Array<{ remove: () => void }>).forEach((m) => m.remove());
-      markersRef.current = [];
+      const bounds = new mapboxgl.LngLatBounds();
+      for (const prop of properties) {
+        const lat = Number(prop.latitude);
+        const lng = Number(prop.longitude);
+        if (!prop.latitude || !prop.longitude || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      // Add new markers
-      properties.forEach((prop) => {
-        if (!prop.latitude || !prop.longitude) return;
+        const el = priceTag(prop);
+        el.addEventListener("click", () => onSelectRef.current?.(prop));
+        const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat([lng, lat]).addTo(map);
+        markersRef.current.set(prop.id, { marker, el });
+        bounds.extend([lng, lat]);
+      }
+      if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 64, maxZoom: 14, duration: 600 });
+    });
+  }, [properties, ready]);
 
-        const lat = parseFloat(prop.latitude);
-        const lng = parseFloat(prop.longitude);
-        if (isNaN(lat) || isNaN(lng)) return;
+  // Isolate the selected listing
+  useEffect(() => {
+    markersRef.current.forEach(({ el, marker }, id) => {
+      const active = id === selectedId;
+      el.style.opacity = selectedId && !active ? "0.45" : "1";
+      el.style.background = active ? "rgb(var(--seal))" : "rgb(var(--sheet))";
+      el.style.color = active ? "#fff" : "rgb(var(--ink))";
+      el.style.zIndex = active ? "2" : "1";
+      marker.getElement().style.zIndex = active ? "2" : "1";
+    });
+  }, [selectedId, properties, ready]);
 
-        // Price pill element
-        const el = document.createElement("div");
-        el.className = [
-          "cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5",
-          "text-xs font-bold text-white shadow-lg",
-          "bg-brand-500 hover:bg-brand-600",
-          "border-2 border-white",
-          "transition-transform duration-150 hover:scale-110 hover:-translate-y-0.5",
-        ].join(" ");
-        el.textContent = formatPrice(prop.price);
-        el.setAttribute("data-property-id", prop.id);
-
-        // Popup
-        const popup = new MapboxGL.Popup({
-          offset: 25,
-          closeButton: false,
-          className: "property-popup",
-          maxWidth: "280px",
-        }).setHTML(`
-          <a href="/property/${prop.slug}" class="block p-3 no-underline">
-            <p class="font-bold text-slate-900 text-sm">${formatPrice(prop.price)}</p>
-            <p class="text-xs text-slate-600 mt-0.5 line-clamp-2">${prop.title}</p>
-            <p class="text-xs text-slate-400 mt-1">${prop.locality}, ${prop.city}</p>
-            ${prop.bedrooms ? `<p class="text-xs text-slate-500 mt-1">${prop.bedrooms} BHK · ${prop.propertyType.replace(/_/g, " ")}</p>` : ""}
-          </a>
-        `);
-
-        const marker = new MapboxGL.Marker({ element: el, anchor: "bottom" })
-          .setLngLat([lng, lat])
-          .setPopup(popup)
-          .addTo(map as Parameters<typeof MapboxGL.Marker.prototype.addTo>[0]);
-
-        el.addEventListener("click", () => {
-          onPropertyClick?.(prop);
-        });
-
-        (markersRef.current as unknown[]).push(marker);
-      });
-    }).catch(console.error);
-  }, [properties, isLoaded, onPropertyClick]);
+  if (!HAS_TOKEN || failed) {
+    return (
+      <div className={`flex items-center justify-center bg-paper-deep p-8 text-center ${className}`}>
+        <div className="max-w-xs">
+          <p className="font-display text-xl text-ink">Map unavailable</p>
+          <p className="mt-2 text-sm text-ink-soft">
+            {HAS_TOKEN ? "The map could not load. The list still shows every result." : "Set NEXT_PUBLIC_MAPBOX_TOKEN to enable the map view."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`relative rounded-2xl overflow-hidden bg-slate-200 ${className}`}>
-      {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 z-10">
-          <div className="flex flex-col items-center gap-3 text-slate-400">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-500" />
-            <p className="text-sm">Loading map...</p>
-          </div>
-        </div>
-      )}
-      <div ref={mapContainerRef} className="h-full w-full" />
+    <div className={`relative bg-paper-deep ${className}`}>
+      {!ready && <div className="skeleton absolute inset-0 !rounded-none" aria-hidden="true" />}
+      <div ref={containerRef} className="h-full w-full" />
     </div>
   );
 }

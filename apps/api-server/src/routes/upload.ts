@@ -1,52 +1,59 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
+import { db, properties } from "@99acres/db";
+import { eq } from "drizzle-orm";
 
 import { authGuard } from "../middleware/authGuard.js";
+import { s3, S3_BUCKET, publicMediaBase } from "../config/s3.js";
 
-const s3Endpoint = process.env["AWS_S3_ENDPOINT"];
-const s3 = new S3Client({
-  region: process.env["AWS_REGION"] ?? "ap-south-1",
-  ...(s3Endpoint ? { endpoint: s3Endpoint } : {}),
-  forcePathStyle: !!s3Endpoint,
-  credentials: {
-    accessKeyId: process.env["AWS_ACCESS_KEY_ID"] ?? "test",
-    secretAccessKey: process.env["AWS_SECRET_ACCESS_KEY"] ?? "test",
-  },
-});
-
-const BUCKET = process.env["AWS_S3_BUCKET"] ?? "acres99-media";
-const CDN_URL = process.env["CLOUDFLARE_CDN_URL"] ?? "";
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
 const presignSchema = z.object({
-  fileName: z.string().min(1),
+  fileName: z.string().min(1).max(256),
   contentType: z.enum(["image/jpeg", "image/jpg", "image/png", "image/webp"]),
   propertyId: z.string().uuid(),
 });
 
 export async function uploadRoutes(fastify: FastifyInstance): Promise<void> {
 
-  // POST /api/v1/upload/presign — get a presigned S3 PUT URL
+  // POST /api/v1/upload/presign — get a presigned S3 PUT URL for a listing photo
   fastify.post(
     "/presign",
     { preHandler: [authGuard] },
     async (request, reply) => {
       const body = presignSchema.safeParse(request.body);
       if (!body.success) {
-        return reply.status(400).send({ error: "Validation Error", message: body.error.message });
+        return reply.status(400).send({ error: "Validation Error", message: body.error.issues[0]?.message ?? "Invalid input" });
       }
 
-      const { fileName, contentType, propertyId } = body.data;
-      const ext = fileName.split(".").pop() ?? "jpg";
-      const s3Key = `properties/${propertyId}/${randomUUID()}.${ext}`;
+      const { contentType, propertyId } = body.data;
+
+      const [property] = await db
+        .select({ ownerId: properties.ownerId })
+        .from(properties)
+        .where(eq(properties.id, propertyId))
+        .limit(1);
+
+      if (!property) return reply.status(404).send({ error: "Not Found", message: "Property not found" });
+      if (property.ownerId !== request.user.sub && request.user.role !== "admin") {
+        return reply.status(403).send({ error: "Forbidden", message: "You don't own this listing" });
+      }
+
+      // Extension comes from the validated content type, never from the client file name
+      const s3Key = `properties/${propertyId}/${randomUUID()}.${EXTENSIONS[contentType] ?? "jpg"}`;
 
       const command = new PutObjectCommand({
-        Bucket: BUCKET,
+        Bucket: S3_BUCKET,
         Key: s3Key,
         ContentType: contentType,
-        // Enforce max 10MB size via policy
         Metadata: {
           uploadedBy: request.user.sub,
           propertyId,
@@ -55,15 +62,11 @@ export async function uploadRoutes(fastify: FastifyInstance): Promise<void> {
 
       const presignedUrl = await getSignedUrl(s3, command, { expiresIn: 300 }); // 5 min
 
-      const cdnUrl = CDN_URL
-        ? `${CDN_URL}/${s3Key}`
-        : `${process.env["AWS_S3_ENDPOINT"] ?? ""}/${BUCKET}/${s3Key}`;
-
       return reply.send({
         data: {
           presignedUrl,
           s3Key,
-          cdnUrl,
+          cdnUrl: `${publicMediaBase()}/${s3Key}`,
           expiresIn: 300,
         },
       });

@@ -8,6 +8,13 @@
       "when": 1785970213828,
       "tag": "0000_flaky_klaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791987923272,
+      "tag": "0001_add_password_hash",
+      "breakpoints": true
     }
   ]
 }

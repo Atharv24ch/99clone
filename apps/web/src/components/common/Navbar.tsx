@@ -1,187 +1,165 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Menu, X, Heart, Bell, ChevronDown, LogOut, User, LayoutDashboard, PlusCircle
-} from "lucide-react";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { Menu, X, ChevronDown, Bookmark, LayoutGrid, LogOut, Plus, UserRound } from "lucide-react";
+
+import { Logo } from "@/components/brand/Logo";
 import { useAuthStore } from "@/store/authStore";
 
 const navLinks = [
-  { label: "Buy", href: "/search?listingType=buy" },
-  { label: "Rent", href: "/search?listingType=rent" },
-  { label: "Commercial", href: "/search?listingType=commercial_buy" },
-  { label: "PG/Co-living", href: "/search?listingType=pg" },
-  { label: "New Projects", href: "/search?listingType=new_project" },
+  { label: "Buy", listingType: "buy" },
+  { label: "Rent", listingType: "rent" },
+  { label: "Commercial", listingType: "commercial_buy" },
+  { label: "PG", listingType: "pg" },
+  { label: "Plots", listingType: "plot_buy" },
+  { label: "New projects", listingType: "new_project" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const { user, isAuthenticated, clearAuth } = useAuthStore();
+  const profileRef = useRef<HTMLDivElement>(null);
+  const { user, isAuthenticated, hasHydrated, clearAuth } = useAuthStore();
 
-  // Detect scroll for nav shadow
+  const activeType = pathname === "/search" ? searchParams.get("listingType") : null;
+
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    setMobileOpen(false);
+    setProfileOpen(false);
+  }, [pathname]);
 
-  const isHome = pathname === "/";
+  useEffect(() => {
+    if (!profileOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setProfileOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [profileOpen]);
+
+  const signOut = () => {
+    clearAuth();
+    setProfileOpen(false);
+    router.push("/");
+  };
+
+  const signedIn = hasHydrated && isAuthenticated && user;
 
   return (
-    <header
-      className={[
-        "sticky top-0 z-40 w-full transition-all duration-200",
-        scrolled || !isHome
-          ? "bg-white border-b border-slate-100 shadow-sm"
-          : "bg-transparent",
-      ].join(" ")}
-    >
-      <div className="container-app flex h-16 items-center justify-between gap-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-brand">
-            <span className="text-sm font-bold text-white">99</span>
-          </div>
-          <span className="hidden font-display text-lg font-bold text-slate-900 sm:block">
-            acres<span className="text-brand-500">clone</span>
-          </span>
-        </Link>
+    <header className="sticky top-0 z-40 border-b border-rule bg-paper/95 backdrop-blur-[2px] supports-[backdrop-filter]:bg-paper/85">
+      <div className="container-app flex h-16 items-center justify-between gap-6">
+        <Logo />
 
-        {/* Desktop Nav Links */}
-        <nav className="hidden items-center gap-1 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={[
-                "rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150",
-                pathname.startsWith("/search") && link.href.includes(pathname.split("?")[0] ?? "")
-                  ? "bg-brand-50 text-brand-600"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
-              ].join(" ")}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav aria-label="Listing types" className="hidden items-center gap-1 lg:flex">
+          {navLinks.map((link) => {
+            const active = activeType === link.listingType;
+            return (
+              <Link
+                key={link.listingType}
+                href={`/search?listingType=${link.listingType}`}
+                aria-current={active ? "page" : undefined}
+                className={[
+                  "relative px-3 py-2 text-[15px] font-medium transition-colors",
+                  active ? "text-ink" : "text-ink-soft hover:text-ink",
+                ].join(" ")}
+              >
+                {link.label}
+                {active && <span className="absolute inset-x-3 -bottom-[13px] h-[2px] bg-seal" aria-hidden="true" />}
+              </Link>
+            );
+          })}
         </nav>
 
-        {/* Right actions */}
         <div className="flex items-center gap-2">
-          {/* Post Property CTA */}
-          <Link
-            href="/dashboard/post-property"
-            className="hidden items-center gap-2 rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-600 transition-colors duration-150 sm:flex"
-            id="nav-post-property-btn"
-          >
-            <PlusCircle className="h-4 w-4" />
-            Post Property
+          <Link href="/dashboard/post-property" className="btn-ink hidden !px-4 !py-2 text-sm sm:inline-flex">
+            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Post a property
           </Link>
 
-          {isAuthenticated && user ? (
-            <>
-              {/* Saved */}
-              <Link
-                href="/dashboard/saved"
-                className="hidden rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors sm:flex"
-                aria-label="Saved properties"
+          {!hasHydrated ? (
+            <span className="hidden h-9 w-20 sm:block" aria-hidden="true" />
+          ) : signedIn ? (
+            <div className="relative" ref={profileRef}>
+              <button
+                type="button"
+                onClick={() => setProfileOpen((o) => !o)}
+                aria-expanded={profileOpen}
+                aria-haspopup="menu"
+                className="flex items-center gap-2 rounded-sheet px-2 py-1.5 text-sm font-medium text-ink hover:bg-paper-deep"
               >
-                <Heart className="h-5 w-5" />
-              </Link>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-stamp/40 bg-paper-sheet font-display text-[15px] text-stamp">
+                  {user.firstName[0]?.toUpperCase() ?? "A"}
+                </span>
+                <span className="hidden max-w-[10ch] truncate md:block">{user.firstName}</span>
+                <ChevronDown className={`h-4 w-4 text-ink-soft transition-transform ${profileOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
 
-              {/* Profile dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                  aria-expanded={profileOpen}
-                  aria-haspopup="true"
-                  id="nav-profile-btn"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-100 text-brand-700 font-semibold text-xs">
-                    {user.firstName[0]?.toUpperCase() ?? "U"}
+              {profileOpen && (
+                <div role="menu" className="sheet absolute right-0 top-full mt-2 w-60 animate-rise py-1.5">
+                  <div className="border-b border-rule px-4 pb-2.5 pt-1.5">
+                    <p className="text-sm font-semibold text-ink">{user.firstName} {user.lastName ?? ""}</p>
+                    <p className="truncate text-xs text-ink-soft">{user.email ?? user.phone}</p>
                   </div>
-                  <span className="hidden sm:block">{user.firstName}</span>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${profileOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {profileOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 rounded-2xl border border-slate-100 bg-white py-1.5 shadow-xl z-50 animate-slide-down">
-                    <div className="border-b border-slate-100 px-4 py-2 mb-1">
-                      <p className="text-sm font-semibold text-slate-900">{user.firstName} {user.lastName ?? ""}</p>
-                      <p className="text-xs text-slate-500 truncate">{user.email ?? user.phone}</p>
-                    </div>
-                    <Link href="/dashboard" onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                      <LayoutDashboard className="h-4 w-4 text-slate-400" /> Dashboard
+                  {[
+                    { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
+                    { href: "/dashboard/saved", label: "Saved listings", icon: Bookmark },
+                    { href: "/dashboard/profile", label: "Profile", icon: UserRound },
+                  ].map(({ href, label, icon: Icon }) => (
+                    <Link key={href} href={href} role="menuitem" className="flex items-center gap-3 px-4 py-2 text-sm text-ink hover:bg-paper-deep">
+                      <Icon className="h-4 w-4 text-ink-faint" strokeWidth={1.75} aria-hidden="true" />
+                      {label}
                     </Link>
-                    <Link href="/dashboard/post-property" onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                      <PlusCircle className="h-4 w-4 text-slate-400" /> Post Property
-                    </Link>
-                    <button
-                      onClick={() => { clearAuth(); setProfileOpen(false); }}
-                      className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                      id="nav-logout-btn"
-                    >
-                      <LogOut className="h-4 w-4" /> Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
+                  ))}
+                  <button type="button" role="menuitem" onClick={signOut} className="flex w-full items-center gap-3 border-t border-rule px-4 py-2 text-sm text-danger hover:bg-paper-deep">
+                    <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <Link href="/(auth)/login"
-                className="hidden rounded-xl px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors sm:block"
-                id="nav-login-btn">
-                Login
-              </Link>
-              <Link href="/(auth)/signup"
-                className="rounded-xl border border-brand-500 px-4 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 transition-colors"
-                id="nav-signup-btn">
-                Sign up
-              </Link>
+            <div className="flex items-center gap-1">
+              <Link href="/login" className="btn-quiet hidden sm:inline-flex">Sign in</Link>
+              <Link href="/signup" className="btn-seal !px-4 !py-2 text-sm">Create account</Link>
             </div>
           )}
 
-          {/* Mobile menu toggle */}
           <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 md:hidden"
-            aria-label="Toggle navigation"
-            id="nav-mobile-menu-btn"
+            type="button"
+            onClick={() => setMobileOpen((o) => !o)}
+            className="btn-quiet !p-2 lg:hidden"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-slate-100 bg-white px-4 py-3 md:hidden animate-slide-down">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMobileOpen(false)}
-              className="flex items-center rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              {link.label}
-            </Link>
-          ))}
-          <div className="mt-3 border-t border-slate-100 pt-3">
-            <Link href="/dashboard/post-property"
-              className="btn-brand w-full justify-center text-sm"
-              onClick={() => setMobileOpen(false)}>
-              Post Property FREE
-            </Link>
+        <nav aria-label="Listing types" className="border-t border-rule bg-paper-sheet lg:hidden">
+          <div className="container-app grid grid-cols-2 gap-x-6 py-3">
+            {navLinks.map((link) => (
+              <Link key={link.listingType} href={`/search?listingType=${link.listingType}`} className="border-b border-rule/70 py-3 text-[15px] font-medium text-ink">
+                {link.label}
+              </Link>
+            ))}
           </div>
-        </div>
+          <div className="container-app flex gap-3 pb-4">
+            <Link href="/dashboard/post-property" className="btn-ink flex-1 text-sm">Post a property</Link>
+            {!signedIn && <Link href="/login" className="btn-quiet flex-1 border border-rule text-sm">Sign in</Link>}
+          </div>
+        </nav>
       )}
     </header>
   );

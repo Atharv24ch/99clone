@@ -1,179 +1,174 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CSS Design Tokens ──────────────────────────────────────────────────────── */
+/* ─── Aangan tokens: stamp paper & registry ─────────────────────────────────── */
 :root {
-  --font-inter: 'Inter', sans-serif;
-  --font-outfit: 'Outfit', sans-serif;
+  /* paper */
+  --paper: 234 239 228;       /* page ground: pale stamp-paper green */
+  --paper-deep: 220 229 213;  /* recessed bands */
+  --sheet: 248 250 244;       /* the document itself */
+  /* ink */
+  --ink: 27 36 31;
+  --ink-soft: 74 86 78;
+  --ink-faint: 98 110 101;   /* ≥4.5:1 on sheet for small meta text */
+  /* stamp green (guilloche, structure) */
+  --stamp: 47 93 58;
+  --stamp-light: 151 183 152;
+  --stamp-dark: 30 63 39;
+  /* registry violet (seals, primary action) */
+  --seal: 91 45 142;
+  --seal-dark: 70 31 112;
+  --seal-wash: 238 231 246;
+  /* lines and states */
+  --rule: 196 210 190;
+  --danger: 168 44 36;
 
-  /* Brand */
-  --color-brand: hsl(24, 92%, 51%);
-  --color-brand-light: hsl(24, 100%, 97%);
-  --color-brand-dark: hsl(24, 88%, 36%);
-
-  /* Neutral */
-  --color-bg: hsl(220, 20%, 98%);
-  --color-surface: hsl(0, 0%, 100%);
-  --color-border: hsl(220, 13%, 91%);
-  --color-text: hsl(220, 17%, 14%);
-  --color-text-muted: hsl(220, 9%, 46%);
-
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
-  --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.08), 0 4px 16px -2px hsl(0 0% 0% / 0.06);
-  --shadow-card-hover: 0 4px 12px 0 hsl(0 0% 0% / 0.12), 0 16px 40px -4px hsl(0 0% 0% / 0.1);
-  --shadow-xl: 0 20px 60px -10px hsl(0 0% 0% / 0.2);
+  color-scheme: light;
 }
 
-/* ─── Base styles ─────────────────────────────────────────────────────────────── */
 @layer base {
   html {
-    font-family: var(--font-inter);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    min-height: 100vh;
+    @apply bg-paper font-sans text-ink;
+    font-size: 15px;
+    line-height: 1.55;
   }
 
-  *:focus-visible {
-    outline: 2px solid var(--color-brand);
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: rgb(var(--seal) / 0.18);
+    color: rgb(var(--ink));
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--seal));
     outline-offset: 2px;
-    border-radius: 4px;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: hsl(220, 13%, 80%); border-radius: 999px; }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(220, 9%, 60%); }
+  input, textarea, select {
+    caret-color: rgb(var(--seal));
+  }
+
+  a {
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--stamp-light)) transparent;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+    }
+  }
 }
 
-/* ─── Component utilities ─────────────────────────────────────────────────────── */
+/* ─── Components ────────────────────────────────────────────────────────────── */
 @layer components {
   .container-app {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8;
   }
 
-  .btn-brand {
-    @apply inline-flex items-center justify-center gap-2 font-semibold
-           bg-brand-500 hover:bg-brand-600 active:bg-brand-700
-           text-white rounded-xl px-6 py-3 transition-all duration-150
-           shadow-sm hover:shadow-md focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2
-           select-none;
+  /* A document sheet on the paper ground */
+  .sheet {
+    @apply rounded-sheet border border-rule bg-paper-sheet shadow-sheet;
   }
 
-  .card {
-    @apply bg-white rounded-2xl border border-slate-100 shadow-card;
+  /* Double hairline, the deed's border rule */
+  .rule-double {
+    border-top: 1px solid rgb(var(--stamp) / 0.55);
+    box-shadow: 0 3px 0 -2px rgb(var(--stamp) / 0.55);
+    height: 4px;
   }
 
-  .card-hover {
-    @apply card transition-all duration-250 ease-out
-           hover:-translate-y-0.5 hover:shadow-card-hover cursor-pointer;
+  /* Small caps label used on deed fields */
+  .field-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft;
   }
 
-  .input-base {
-    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900
-           placeholder:text-slate-400 outline-none transition-all duration-150
-           hover:border-slate-300 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+  /* Text input set on a ruled line */
+  .input-line {
+    @apply w-full rounded-none border-0 border-b border-ink/30 bg-transparent px-0 py-2 text-[15px] text-ink
+           placeholder:text-ink-faint transition-colors duration-150
+           hover:border-ink/60 focus:border-seal focus:outline-none focus:ring-0;
   }
 
-  .badge-verified {
-    @apply inline-flex items-center gap-1 bg-emerald-500 text-white text-xs font-medium
-           px-2 py-0.5 rounded-md;
+  /* Boxed input for dense forms */
+  .input-box {
+    @apply w-full rounded-sheet border border-rule bg-paper-sheet px-3 py-2.5 text-[15px] text-ink
+           placeholder:text-ink-faint transition-colors duration-150
+           hover:border-stamp-light focus:border-seal focus:outline-none focus:ring-2 focus:ring-seal/15;
   }
 
-  .price-tag {
-    @apply font-display text-2xl font-bold text-slate-900;
+  .input-box[aria-invalid="true"], .input-line[aria-invalid="true"] {
+    @apply border-danger;
   }
 
-  /* Mapbox GL overrides */
-  .mapboxgl-popup-content {
-    @apply rounded-2xl shadow-xl border border-slate-100 p-0 overflow-hidden;
-  }
-  .mapboxgl-popup-close-button {
-    @apply text-slate-500 hover:text-slate-700 text-xl font-light;
-  }
-
-
-}
-
-/* ─── Utilities ───────────────────────────────────────────────────────────────── */
-@layer utilities {
-  .text-balance { text-wrap: balance; }
-  .text-pretty { text-wrap: pretty; }
-
-  /* ── Glassmorphism tokens (canonical) ─────────────────────────────────────── */
-
-  .glass-nav {
-    @apply bg-white/10 dark:bg-black/20 backdrop-blur-md border-b border-white/20;
+  /* Primary action: registry violet */
+  .btn-seal {
+    @apply inline-flex items-center justify-center gap-2 rounded-sheet bg-seal px-5 py-2.5 text-[15px] font-semibold
+           text-white transition-colors duration-150 hover:bg-seal-dark active:translate-y-px
+           disabled:cursor-not-allowed disabled:opacity-55;
   }
 
-  .glass-card {
-    @apply bg-white/10 dark:bg-black/20 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl;
+  /* Secondary action: outlined in ink */
+  .btn-ink {
+    @apply inline-flex items-center justify-center gap-2 rounded-sheet border border-ink/70 bg-transparent px-5 py-2.5
+           text-[15px] font-semibold text-ink transition-colors duration-150 hover:bg-ink hover:text-paper-sheet
+           disabled:cursor-not-allowed disabled:opacity-55;
   }
 
-  .glass-card-hover {
-    @apply hover:bg-white/20 hover:border-white/40 transition-all duration-300 hover:shadow-xl;
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-sheet px-3 py-2 text-sm font-medium text-ink-soft
+           transition-colors duration-150 hover:bg-paper-deep hover:text-ink;
   }
 
-  .glass-input {
-    @apply bg-white/15 dark:bg-white/5 backdrop-blur-sm border border-white/30
-           text-slate-900 dark:text-white placeholder:text-slate-400
-           focus:outline-none focus:ring-2 focus:ring-orange-500/50;
+  .link-ink {
+    @apply text-seal underline decoration-seal/40 hover:decoration-seal;
   }
 
-  .glass-button {
-    @apply bg-orange-500/80 hover:bg-orange-500 backdrop-blur-sm text-white font-semibold transition-all;
+  /* Choice chip (filters, tabs inside forms) */
+  .chip {
+    @apply inline-flex items-center justify-center rounded-sheet border border-rule bg-paper-sheet px-3 py-1.5 text-sm
+           text-ink-soft transition-colors duration-150 hover:border-stamp-light hover:text-ink;
+  }
+  .chip[aria-pressed="true"], .chip[aria-checked="true"], .chip[aria-selected="true"] {
+    @apply border-seal bg-seal-wash font-semibold text-seal-dark;
   }
 
-  /* ── Legacy aliases (kept for backward compat) ──────────────────────────── */
-
-  .glass {
-    @apply bg-white/10 backdrop-blur-md border border-white/20;
-  }
-
-  .glass-dark {
-    @apply bg-slate-900/70 backdrop-blur-xl border border-white/10;
-  }
-
-  /* ── Background / gradient utilities ───────────────────────────────────── */
-
-  .gradient-brand {
-    background: linear-gradient(135deg, hsl(24, 92%, 51%) 0%, hsl(14, 90%, 48%) 100%);
-  }
-
-  .gradient-hero {
-    background:
-      radial-gradient(at 30% 30%, hsl(24, 92%, 60% / 0.25) 0px, transparent 60%),
-      radial-gradient(at 80% 80%, hsl(200, 80%, 50% / 0.1) 0px, transparent 50%),
-      linear-gradient(180deg, hsl(217, 40%, 8%) 0%, hsl(217, 35%, 12%) 100%);
-  }
-
-  .shimmer {
-    background: linear-gradient(90deg, hsl(220, 13%, 91%) 0%, hsl(220, 13%, 96%) 50%, hsl(220, 13%, 91%) 100%);
+  .skeleton {
+    background: linear-gradient(90deg, rgb(var(--paper-deep)) 0%, rgb(var(--sheet)) 50%, rgb(var(--paper-deep)) 100%);
     background-size: 200% 100%;
-    animation: shimmer 1.8s infinite;
+    @apply animate-shimmer rounded-sheet;
   }
 
-  .line-clamp-2 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+  /* Mapbox popup restyle */
+  .mapboxgl-popup-content {
+    @apply rounded-sheet border border-rule bg-paper-sheet p-0 shadow-lift;
   }
-
-  .line-clamp-3 {
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+  .mapboxgl-popup-tip {
+    border-top-color: rgb(var(--sheet)) !important;
   }
 }

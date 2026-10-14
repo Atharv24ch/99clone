@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { db, leads, properties } from "@99acres/db";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, sql } from "drizzle-orm";
 
 import { authGuard } from "../middleware/authGuard.js";
 import { leadRouterService } from "../services/leadRouter.js";
@@ -19,8 +19,16 @@ const createLeadSchema = z.object({
     .default("property_page"),
 });
 
+const leadStatuses = ["new", "contacted", "visited", "negotiating", "converted", "lost", "spam"] as const;
+
+const listLeadsSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: z.enum(leadStatuses).optional(),
+});
+
 const updateLeadStatusSchema = z.object({
-  status: z.enum(["new", "contacted", "visited", "negotiating", "converted", "lost", "spam"]),
+  status: z.enum(leadStatuses),
   notes: z.string().max(2000).optional(),
 });
 
@@ -29,10 +37,10 @@ const updateLeadStatusSchema = z.object({
 export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
 
   // POST /api/v1/leads — submit buyer enquiry (public)
-  fastify.post("/", async (request, reply) => {
+  fastify.post("/", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const body = createLeadSchema.safeParse(request.body);
     if (!body.success) {
-      return reply.status(400).send({ error: "Validation Error", message: body.error.message });
+      return reply.status(400).send({ error: "Validation Error", message: body.error.issues[0]?.message ?? "Invalid input" });
     }
 
     const { propertyId, name, phone, email, message, source } = body.data;
@@ -41,7 +49,7 @@ export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
     const [property] = await db
       .select({ id: properties.id, ownerId: properties.ownerId })
       .from(properties)
-      .where(and(eq(properties.id, propertyId), isNull(properties.deletedAt)))
+      .where(and(eq(properties.id, propertyId), isNull(properties.deletedAt), eq(properties.status, "active")))
       .limit(1);
 
     if (!property) {
@@ -87,27 +95,46 @@ export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
     "/",
     { preHandler: [authGuard] },
     async (request, reply) => {
-      const user = request.user;
-      const { page = "1", limit = "20", status } = request.query as Record<string, string>;
-
-      const pageNum = Math.max(1, parseInt(page, 10));
-      const limitNum = Math.min(100, parseInt(limit, 10));
-      const offset = (pageNum - 1) * limitNum;
-
-      const conditions = [eq(leads.ownerId, user.sub)];
-      if (status) {
-        conditions.push(eq(leads.status, status as "new" | "contacted"));
+      const query = listLeadsSchema.safeParse(request.query);
+      if (!query.success) {
+        return reply.status(400).send({ error: "Bad Request", message: query.error.issues[0]?.message ?? "Invalid query" });
       }
+      const { page, limit, status } = query.data;
+      const offset = (page - 1) * limit;
 
-      const rows = await db
-        .select()
-        .from(leads)
-        .where(and(...conditions))
-        .orderBy(desc(leads.createdAt))
-        .limit(limitNum)
-        .offset(offset);
+      const conditions = [eq(leads.ownerId, request.user.sub)];
+      if (status) conditions.push(eq(leads.status, status));
 
-      return reply.send({ data: rows, page: pageNum, limit: limitNum });
+      const [rows, countResult] = await Promise.all([
+        db
+          .select({
+            id: leads.id,
+            propertyId: leads.propertyId,
+            name: leads.name,
+            phone: leads.phone,
+            email: leads.email,
+            message: leads.message,
+            status: leads.status,
+            source: leads.source,
+            notes: leads.notes,
+            createdAt: leads.createdAt,
+            firstContactAt: leads.firstContactAt,
+            propertyTitle: properties.title,
+            propertySlug: properties.slug,
+            propertyLocality: properties.locality,
+            propertyCity: properties.city,
+          })
+          .from(leads)
+          .innerJoin(properties, eq(leads.propertyId, properties.id))
+          .where(and(...conditions))
+          .orderBy(desc(leads.createdAt))
+          .limit(limit)
+          .offset(offset),
+        db.select({ count: sql<number>`count(*)` }).from(leads).where(and(...conditions)),
+      ]);
+
+      const total = Number(countResult[0]?.count ?? 0);
+      return reply.send({ data: rows, total, page, limit, hasMore: offset + rows.length < total });
     }
   );
 
@@ -118,6 +145,7 @@ export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { id } = request.params;
       const user = request.user;
+      if (!z.string().uuid().safeParse(id).success) return reply.status(400).send({ error: "Bad Request", message: "Invalid lead id" });
 
       const [lead] = await db
         .select()
@@ -141,9 +169,10 @@ export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
     async (request, reply) => {
       const { id } = request.params;
       const user = request.user;
+      if (!z.string().uuid().safeParse(id).success) return reply.status(400).send({ error: "Bad Request", message: "Invalid lead id" });
 
       const [lead] = await db
-        .select({ ownerId: leads.ownerId, assignedTo: leads.assignedTo })
+        .select({ ownerId: leads.ownerId, assignedTo: leads.assignedTo, firstContactAt: leads.firstContactAt })
         .from(leads)
         .where(eq(leads.id, id))
         .limit(1);
@@ -154,7 +183,7 @@ export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
 
       const body = updateLeadStatusSchema.safeParse(request.body);
       if (!body.success) {
-        return reply.status(400).send({ error: "Validation Error", message: body.error.message });
+        return reply.status(400).send({ error: "Validation Error", message: body.error.issues[0]?.message ?? "Invalid input" });
       }
 
       const [updated] = await db
@@ -162,8 +191,7 @@ export async function leadsRoutes(fastify: FastifyInstance): Promise<void> {
         .set({
           status: body.data.status,
           notes: body.data.notes,
-          firstContactAt:
-            body.data.status === "contacted" ? new Date() : undefined,
+          ...(body.data.status === "contacted" && !lead.firstContactAt ? { firstContactAt: new Date() } : {}),
         })
         .where(eq(leads.id, id))
         .returning();

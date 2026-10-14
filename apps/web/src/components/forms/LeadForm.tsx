@@ -1,185 +1,135 @@
 "use client";
 
-import React, { useState } from "react";
-import { Phone, Mail, MessageSquare, Send, CheckCircle, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+
 import { submitLead } from "@/services/properties";
+import { errorMessage } from "@/services/api";
+import { useAuthStore } from "@/store/authStore";
+import { Seal } from "@/components/paper/Seal";
 
 interface LeadFormProps {
   propertyId: string;
   propertyTitle: string;
-  agentName?: string;
 }
 
-export function LeadForm({ propertyId, propertyTitle, agentName }: LeadFormProps) {
+const PHONE_RE = /^\+?[\d\s\-()]{8,20}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function LeadForm({ propertyId, propertyTitle }: LeadFormProps) {
+  const { user, token, hasHydrated } = useAuthStore();
   const [form, setForm] = useState({
     name: "",
     phone: "",
     email: "",
-    message: `Hi, I'm interested in this property. Please share more details and contact me at the earliest.`,
+    message: `I'm interested in "${propertyTitle}". Please call me with more details.`,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  // Prefill from the signed-in account
+  useEffect(() => {
+    if (!hasHydrated || !user) return;
+    setForm((f) => ({
+      ...f,
+      name: f.name || [user.firstName, user.lastName].filter(Boolean).join(" "),
+      phone: f.phone || user.phone || "",
+      email: f.email || user.email || "",
+    }));
+  }, [hasHydrated, user]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!form.name.trim() || form.name.length < 2) errs["name"] = "Please enter your full name";
-    if (!form.phone.trim() || !/^\+?[\d\s\-()]{8,20}$/.test(form.phone)) {
-      errs["phone"] = "Please enter a valid phone number";
-    }
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errs["email"] = "Please enter a valid email address";
-    }
+    if (form.name.trim().length < 2) errs["name"] = "Enter your name";
+    if (!PHONE_RE.test(form.phone.trim())) errs["phone"] = "Enter a phone number with at least 8 digits";
+    if (form.email && !EMAIL_RE.test(form.email.trim())) errs["email"] = "This email address looks incomplete";
     return errs;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
-    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    setErrors({});
-    setIsSubmitting(true);
-
+    setErrors(errs);
+    if (Object.keys(errs).length) return;
+    setSubmitting(true);
     try {
-      await submitLead({ propertyId, ...form });
-      setSubmitted(true);
+      await submitLead(
+        {
+          propertyId,
+          name: form.name.trim(),
+          phone: form.phone.trim(),
+          email: form.email.trim() || undefined,
+          message: form.message.trim() || undefined,
+        },
+        token
+      );
+      setSent(true);
     } catch (err) {
-      setErrors({ submit: "Something went wrong. Please try again." });
+      setErrors({ submit: errorMessage(err, "Your enquiry didn't go through. Please try again.") });
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
-  if (submitted) {
+  if (sent) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-center animate-fade-in">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
-          <CheckCircle className="h-8 w-8 text-emerald-500" />
-        </div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-1">Enquiry Sent!</h3>
-        <p className="text-sm text-slate-500 max-w-xs">
-          {agentName ? `${agentName}` : "The agent"} will contact you shortly on {form.phone}.
+      <div className="flex flex-col items-center py-6 text-center" role="status">
+        <Seal size={112} center="Sent" sub="ENQUIRY" ring="ENQUIRY RECEIVED · AANGAN REGISTRY ·" animate />
+        <p className="mt-5 font-display text-2xl text-ink">Enquiry sent</p>
+        <p className="mt-1 max-w-[30ch] text-sm text-ink-soft">
+          The lister has your details and will call you on <span className="tabular font-semibold text-ink">{form.phone}</span>.
         </p>
-        <button
-          onClick={() => setSubmitted(false)}
-          className="mt-6 text-sm text-brand-600 hover:underline"
-        >
+        <button type="button" onClick={() => setSent(false)} className="link-ink mt-5 text-sm">
           Send another enquiry
         </button>
       </div>
     );
   }
 
+  const field = (key: "name" | "phone" | "email", label: string, props: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <div>
+      <label htmlFor={`lead-${key}`} className="field-label">{label}</label>
+      <input
+        id={`lead-${key}`}
+        value={form[key]}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+        aria-invalid={!!errors[key]}
+        aria-describedby={errors[key] ? `lead-${key}-err` : undefined}
+        className="input-line"
+        {...props}
+      />
+      {errors[key] && <p id={`lead-${key}-err`} className="mt-1 text-xs text-danger">{errors[key]}</p>}
+    </div>
+  );
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      {agentName && (
-        <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-600 font-bold text-sm flex-shrink-0">
-            {agentName[0]?.toUpperCase()}
-          </div>
-          <div>
-            <p className="text-xs text-slate-500">Contact</p>
-            <p className="text-sm font-semibold text-slate-800">{agentName}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Name */}
+    <form onSubmit={onSubmit} className="space-y-5" noValidate>
+      {field("name", "Your name", { autoComplete: "name", placeholder: "Full name" })}
+      {field("phone", "Phone", { type: "tel", autoComplete: "tel", inputMode: "tel", placeholder: "+91 98765 43210" })}
+      {field("email", "Email (optional)", { type: "email", autoComplete: "email", placeholder: "you@example.com" })}
       <div>
-        <label htmlFor="lead-name" className="block text-xs font-medium text-slate-600 mb-1.5">
-          Your Name <span className="text-red-400">*</span>
-        </label>
-        <div className="relative">
-          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            id="lead-name"
-            type="text"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="e.g. Rahul Sharma"
-            className={`input-base pl-10 ${errors["name"] ? "border-red-400 focus:border-red-500 focus:ring-red-200" : ""}`}
-          />
-        </div>
-        {errors["name"] && <p className="mt-1 text-xs text-red-500">{errors["name"]}</p>}
-      </div>
-
-      {/* Phone */}
-      <div>
-        <label htmlFor="lead-phone" className="block text-xs font-medium text-slate-600 mb-1.5">
-          Phone Number <span className="text-red-400">*</span>
-        </label>
-        <div className="relative">
-          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            id="lead-phone"
-            type="tel"
-            value={form.phone}
-            onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-            placeholder="+91 98765 43210"
-            className={`input-base pl-10 ${errors["phone"] ? "border-red-400 focus:border-red-500 focus:ring-red-200" : ""}`}
-          />
-        </div>
-        {errors["phone"] && <p className="mt-1 text-xs text-red-500">{errors["phone"]}</p>}
-      </div>
-
-      {/* Email */}
-      <div>
-        <label htmlFor="lead-email" className="block text-xs font-medium text-slate-600 mb-1.5">
-          Email <span className="text-slate-400">(optional)</span>
-        </label>
-        <div className="relative">
-          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            id="lead-email"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            placeholder="rahul@example.com"
-            className={`input-base pl-10 ${errors["email"] ? "border-red-400" : ""}`}
-          />
-        </div>
-        {errors["email"] && <p className="mt-1 text-xs text-red-500">{errors["email"]}</p>}
-      </div>
-
-      {/* Message */}
-      <div>
-        <label htmlFor="lead-message" className="block text-xs font-medium text-slate-600 mb-1.5">
-          Message
-        </label>
-        <div className="relative">
-          <MessageSquare className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-          <textarea
-            id="lead-message"
-            value={form.message}
-            onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-            rows={3}
-            className="input-base pl-10 resize-none"
-          />
-        </div>
+        <label htmlFor="lead-message" className="field-label">Message</label>
+        <textarea
+          id="lead-message"
+          rows={3}
+          maxLength={1000}
+          value={form.message}
+          onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
+          className="input-box mt-1 resize-none text-sm"
+        />
       </div>
 
       {errors["submit"] && (
-        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{errors["submit"]}</p>
+        <p role="alert" className="rounded-sheet border border-danger/30 bg-danger/5 px-3 py-2.5 text-sm text-danger">
+          {errors["submit"]}
+        </p>
       )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        id="lead-submit-btn"
-        className="btn-brand w-full gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-      >
-        {isSubmitting ? (
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-        ) : (
-          <Send className="h-4 w-4" />
-        )}
-        {isSubmitting ? "Sending..." : "Send Enquiry"}
+      <button type="submit" disabled={submitting} className="btn-seal w-full !py-3">
+        {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+        {submitting ? "Sending" : "Send enquiry"}
       </button>
-
-      <p className="text-center text-xs text-slate-400">
-        By submitting, you agree to our{" "}
-        <a href="/terms" className="text-brand-500 hover:underline">Terms of Service</a>
-      </p>
     </form>
   );
 }

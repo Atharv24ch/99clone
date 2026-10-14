@@ -1,6 +1,6 @@
 import type { Lead } from "@99acres/db";
-import { db, users } from "@99acres/db";
-import { eq } from "drizzle-orm";
+import { db, users, properties } from "@99acres/db";
+import { eq, sql } from "drizzle-orm";
 import { Queue } from "bullmq";
 
 import { redis } from "../config/redis.js";
@@ -37,9 +37,10 @@ class LeadRouterService {
     }
 
     // 2. Update property lead count
-    await db.execute(
-      `UPDATE properties SET lead_count = lead_count + 1 WHERE id = '${lead.propertyId}'` as unknown as Parameters<typeof db.execute>[0]
-    );
+    await db
+      .update(properties)
+      .set({ leadCount: sql`${properties.leadCount} + 1` })
+      .where(eq(properties.id, lead.propertyId));
 
     // 3. Queue notification to agent
     await notificationQueue.add(

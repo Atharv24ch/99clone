@@ -1,14 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useState } from "react";
+
+import { onUnauthorized } from "@/services/api";
+import { useAuthStore } from "@/store/authStore";
 
 /**
- * Client-side providers wrapper.
- * Keeps QueryClient in state so it's stable across renders
- * and only created once per page load.
+ * Client-side providers. The QueryClient lives in state so it is created once
+ * per page load; an expired token anywhere signs the user out.
  */
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -24,12 +25,12 @@ export function Providers({ children }: { children: ReactNode }) {
       })
   );
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-      {process.env["NODE_ENV"] === "development" && (
-        <ReactQueryDevtools initialIsOpen={false} />
-      )}
-    </QueryClientProvider>
-  );
+  useEffect(() => {
+    onUnauthorized(() => {
+      useAuthStore.getState().clearAuth();
+      queryClient.clear();
+    });
+  }, [queryClient]);
+
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
