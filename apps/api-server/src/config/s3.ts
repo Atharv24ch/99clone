@@ -8,6 +8,10 @@ export const s3 = new S3Client({
   region: process.env["AWS_REGION"] ?? "ap-south-1",
   ...(s3Endpoint ? { endpoint: s3Endpoint } : {}),
   forcePathStyle: !!s3Endpoint,
+  // SDK v3 otherwise bakes a CRC32 of the (empty) body into presigned PUT URLs,
+  // which makes S3 reject every browser upload with "x-amz-checksum-crc32 is invalid".
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
   credentials: {
     accessKeyId: process.env["AWS_ACCESS_KEY_ID"] ?? "test",
     secretAccessKey: process.env["AWS_SECRET_ACCESS_KEY"] ?? "test",

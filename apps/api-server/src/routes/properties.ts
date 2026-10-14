@@ -1,17 +1,16 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { db, properties, propertyImages, savedProperties } from "@99acres/db";
+import { db, properties, propertyImages, savedProperties, users } from "@99acres/db";
 import type { Property } from "@99acres/db";
 import { eq, and, gte, lte, sql, desc, asc, ilike, isNull, inArray } from "drizzle-orm";
-import { Queue } from "bullmq";
 
 import { authGuard, adminGuard } from "../middleware/authGuard.js";
 import { geoSearchService } from "../services/geoSearch.js";
 import { searchIndexer } from "../services/searchIndexer.js";
-import { redis } from "../config/redis.js";
-import { publicMediaBase } from "../config/s3.js";
+import { defaultJobOptions, imageQueue, notificationQueue } from "../config/queues.js";
+import { HeadObjectCommand } from "@aws-sdk/client-s3";
 
-const imageQueue = new Queue("image-processing", { connection: redis });
+import { publicMediaBase, s3, S3_BUCKET } from "../config/s3.js";
 
 // ─── Enums (mirrors packages/db schema) ───────────────────────────────────────
 
@@ -560,6 +559,29 @@ export async function propertiesRoutes(fastify: FastifyInstance): Promise<void> 
       .returning();
 
     reindex(updated);
+
+    // Tell the owner their listing went live
+    if (status === "active" && owned.property.status !== "active") {
+      void (async () => {
+        const [owner] = await db
+          .select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, owned.property.ownerId))
+          .limit(1);
+        if (!owner?.email) return;
+        await notificationQueue.add(
+          "listing-approved",
+          {
+            type: "property_approved",
+            userEmail: owner.email,
+            propertyId: owned.property.id,
+            message: `"${owned.property.title}" has been approved and now appears in search.`,
+          },
+          defaultJobOptions
+        );
+      })().catch((err: unknown) => console.error("Failed to queue approval email:", err));
+    }
+
     return reply.send({ data: updated });
   });
 
@@ -580,6 +602,20 @@ export async function propertiesRoutes(fastify: FastifyInstance): Promise<void> 
       return reply.status(400).send({ error: "Bad Request", message: "Image does not belong to this listing" });
     }
 
+    // The browser uploads straight to storage; confirm the object really landed
+    let head;
+    try {
+      head = await s3.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: body.data.s3Key }));
+    } catch {
+      return reply.status(400).send({ error: "Bad Request", message: "That photo hasn't finished uploading. Please try again." });
+    }
+    if ((head.ContentLength ?? 0) > 10 * 1024 * 1024) {
+      return reply.status(400).send({ error: "Bad Request", message: "Photos must be 10 MB or smaller" });
+    }
+    if (head.ContentType && !head.ContentType.startsWith("image/")) {
+      return reply.status(400).send({ error: "Bad Request", message: "Only image files can be added" });
+    }
+
     const [countRow] = await db
       .select({ count: sql<number>`count(*)` })
       .from(propertyImages)
@@ -596,7 +632,7 @@ export async function propertiesRoutes(fastify: FastifyInstance): Promise<void> 
         s3Key: body.data.s3Key,
         cdnUrl: `${publicMediaBase()}/${body.data.s3Key}`,
         mimeType: body.data.mimeType,
-        sizeBytes: body.data.sizeBytes ?? null,
+        sizeBytes: head.ContentLength ?? body.data.sizeBytes ?? null,
         isCoverImage: body.data.isCoverImage ?? existingCount === 0,
         sortOrder: existingCount,
       })
@@ -604,12 +640,7 @@ export async function propertiesRoutes(fastify: FastifyInstance): Promise<void> 
 
     if (image) {
       void imageQueue
-        .add("process", { imageId: image.id, s3Key: image.s3Key, propertyId: params.data.id }, {
-          attempts: 3,
-          backoff: { type: "exponential", delay: 2000 },
-          removeOnComplete: 200,
-          removeOnFail: 100,
-        })
+        .add("process", { imageId: image.id, s3Key: image.s3Key, propertyId: params.data.id }, defaultJobOptions)
         .catch((err: unknown) => console.error("Failed to queue image processing:", err));
     }
 

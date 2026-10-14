@@ -1,5 +1,7 @@
 import { Worker } from "bullmq";
+
 import { createWorkerRedis } from "../config/redis.js";
+import { appUrl, emailLayout, escapeHtml, sendEmail } from "../services/email.js";
 
 const redis = createWorkerRedis();
 
@@ -17,42 +19,16 @@ interface NotificationJobData {
   message?: string;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /**
- * Send SMS via a provider (Twilio/Fast2SMS/MSG91).
- * Stub implementation — replace with actual SDK call.
+ * SMS is not wired to a provider yet (Twilio / MSG91 / Fast2SMS are the usual
+ * choices for India); messages are logged so lead routing still works end to end.
  */
 async function sendSms(phone: string, message: string): Promise<void> {
-  if (process.env["NODE_ENV"] !== "production" || !process.env["SMS_PROVIDER"]) {
-    console.log(`📱 [SMS STUB] To: ${phone}\n   Message: ${message}`);
-    return;
-  }
-  // TODO: integrate Twilio / MSG91 / Fast2SMS
-  // await twilioClient.messages.create({ to: phone, from: TWILIO_FROM, body: message });
+  console.log(`[sms:stub] To: ${phone}\n  ${message}`);
 }
 
 /**
- * Send email via a provider (SendGrid/SES/Resend).
- * Stub implementation — replace with actual SDK call.
- */
-async function sendEmail(to: string, subject: string, body: string): Promise<void> {
-  if (process.env["NODE_ENV"] !== "production" || !process.env["EMAIL_PROVIDER"]) {
-    console.log(`📧 [EMAIL STUB] To: ${to}\n   Subject: ${subject}\n   Body: ${body}`);
-    return;
-  }
-  // TODO: integrate SendGrid / AWS SES / Resend
-}
-
-/**
- * BullMQ worker for sending notifications (SMS + Email) to agents and buyers.
+ * BullMQ worker that delivers lead and listing notifications.
  */
 const notificationWorker = new Worker<NotificationJobData>(
   "notifications",
@@ -61,17 +37,24 @@ const notificationWorker = new Worker<NotificationJobData>(
 
     switch (type) {
       case "new_lead": {
-        const smsMessage = `You have a new lead from ${buyerName ?? "a buyer"} (${buyerPhone ?? "N/A"}). Log in to 99acres to respond.`;
-        const emailSubject = `New Lead: ${buyerName ?? "Buyer"} is interested in your property`;
-        const emailBody = `
-          <p>Dear Agent,</p>
-          <p>You have received a new enquiry from <strong>${escapeHtml(buyerName ?? "a buyer")}</strong> (${escapeHtml(buyerPhone ?? "N/A")}).</p>
-          <p>Log in to your dashboard to view details and contact the buyer.</p>
-        `;
+        const name = buyerName ?? "A buyer";
+        const phone = buyerPhone ?? "no number given";
+        const leadsUrl = `${appUrl()}/dashboard/leads`;
 
         await Promise.allSettled([
-          agentPhone ? sendSms(agentPhone, smsMessage) : Promise.resolve(),
-          agentEmail ? sendEmail(agentEmail, emailSubject, emailBody) : Promise.resolve(),
+          agentPhone ? sendSms(agentPhone, `New enquiry on Aangan from ${name} (${phone}). ${leadsUrl}`) : Promise.resolve(),
+          agentEmail
+            ? sendEmail({
+                to: agentEmail,
+                subject: `New enquiry from ${name}`,
+                text: `${name} (${phone}) enquired about your listing on Aangan. See it at ${leadsUrl}`,
+                html: emailLayout(
+                  "You have a new enquiry",
+                  `<p><strong>${escapeHtml(name)}</strong> (${escapeHtml(phone)}) is interested in your listing.</p>
+                   <p><a href="${leadsUrl}" style="color:#5B2D8E">Open your enquiries</a> to call them back.</p>`
+                ),
+              })
+            : Promise.resolve(),
         ]);
         break;
       }
@@ -79,11 +62,17 @@ const notificationWorker = new Worker<NotificationJobData>(
       case "property_approved": {
         const { userEmail, message } = job.data;
         if (userEmail) {
-          await sendEmail(
-            userEmail,
-            "Your property listing is live",
-            message ?? "Your property has been approved and is now live."
-          );
+          const listingsUrl = `${appUrl()}/dashboard/listings`;
+          await sendEmail({
+            to: userEmail,
+            subject: "Your listing is live",
+            text: `${message ?? "Your property has been approved and is now live."} ${listingsUrl}`,
+            html: emailLayout(
+              "Your listing is live",
+              `<p>${escapeHtml(message ?? "Your property has been approved and now appears in search.")}</p>
+               <p><a href="${listingsUrl}" style="color:#5B2D8E">View your listings</a></p>`
+            ),
+          });
         }
         break;
       }
@@ -103,7 +92,7 @@ const notificationWorker = new Worker<NotificationJobData>(
 );
 
 notificationWorker.on("failed", (job, err) => {
-  console.error(`❌ Notification job ${job?.id ?? "unknown"} failed:`, err.message);
+  console.error(`Notification job ${job?.id ?? "unknown"} failed:`, err.message);
 });
 
-console.log("📬 Notification worker started");
+console.log("Notification worker started");

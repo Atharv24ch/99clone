@@ -7,23 +7,23 @@
 
 ## 1. UI Styling Convention
 
-Always use global CSS utility classes instead of long inline Tailwind strings:
+Visual system: "Stamp Paper & Registry" (see DESIGN.md). Use component classes
+from apps/web/src/app/globals.css instead of long inline Tailwind strings:
 
-| Token          | Use when                                                      |
-|----------------|---------------------------------------------------------------|
-| `.glass-nav`   | Sticky nav bars / top headers                                 |
-| `.glass-card`  | Static content cards (feature cards, info panels)             |
-| `.glass-card-hover` | Clickable cards (property listings, city tiles)          |
-| `.glass-input` | Form inputs that sit on a dark/glass background               |
-| `.glass-button`| Primary CTA buttons on dark/glass backgrounds                 |
-| `.btn-brand`   | Primary CTA on light/white backgrounds                        |
-| `.card`        | Static card on a light background (no glass needed)           |
-| `.card-hover`  | Clickable card on a light background                          |
-| `.input-base`  | Standard input on a light background                          |
-| `.container-app` | Max-width content wrapper (max-w-7xl, auto margins, px)    |
+| Token            | Use when                                              |
+|------------------|-------------------------------------------------------|
+| `.sheet`         | Any document surface (cards, panels, menus)           |
+| `.btn-seal`      | Primary action (registry violet), one per view        |
+| `.btn-ink`       | Secondary action (ink outline)                        |
+| `.btn-quiet`     | Tertiary / text action                                |
+| `.chip`          | Toggle choices; state via aria-pressed / aria-checked |
+| `.input-line`    | Text typed on a ruled line                            |
+| `.input-box`     | Boxed inputs, selects, textareas                      |
+| `.field-label`   | Uppercase field label (never above a heading)         |
+| `.container-app` | Max-width content wrapper                             |
 
-All glass tokens are defined in `apps/web/src/app/globals.css` under `@layer components`.
-All shadow/animation tokens are in `apps/web/tailwind.config.ts`.
+Colours: `paper`, `sheet`, `ink(-soft/-faint)`, `stamp(-light/-dark)`, `seal(-dark/-wash)`,
+`rule`, `danger` (Tailwind names backed by CSS variables).
 
 ## 2. Scope Discipline
 
@@ -64,9 +64,10 @@ All shadow/animation tokens are in `apps/web/tailwind.config.ts`.
 
 - Global CSS tokens:   `apps/web/src/app/globals.css`
 - Tailwind config:     `apps/web/tailwind.config.ts`
-- Background layer:    `apps/web/src/components/common/BackgroundMedia.tsx`
+- Design system:       `DESIGN.md` + `.impeccable/design.json`
+- Product context:     `PRODUCT.md`
 - Root layout:         `apps/web/src/app/layout.tsx`
-- Homepage:            `apps/web/src/app/page.tsx`
+- Homepage:            `apps/web/src/app/(main)/page.tsx`
 - API auth guard:      `apps/api-server/src/middleware/authGuard.ts`
 - Auth plugin:         `apps/api-server/src/plugins/auth.ts`
 - DB schema:           `packages/db/src/schema/index.ts`

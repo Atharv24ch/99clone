@@ -1,69 +1,58 @@
-# MEMORY.md — 99acres Clone Project State
-# Updated: 2026-08-11
+# MEMORY.md — Aangan (99acres clone) Project State
+# Updated: 2026-10-14
 
 ## Project Overview
-Full-stack real estate marketplace (99acres clone) built as a Turborepo monorepo.
+Full-stack Indian real estate marketplace, Turborepo monorepo. Ships under the
+working name **Aangan** (neutral placeholder replacing "99acres Clone").
+Product truth: `PRODUCT.md`. Visual system: `DESIGN.md` + `.impeccable/design.json`.
 
 ## Tech Stack
-- **Frontend:** Next.js 15 (App Router, SSR), TypeScript, Tailwind CSS
-- **Backend:** Fastify + Drizzle ORM (PostGIS), TypeScript
-- **DB:** PostgreSQL (Docker), Redis (BullMQ), OpenSearch
-- **Monorepo:** pnpm workspaces + Turborepo
-- **Auth:** Firebase Auth + JWT (`@fastify/jwt`)
-- **Storage:** LocalStack (dev) / AWS S3 (prod)
+- **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind, TanStack Query, Zustand
+- **Backend:** Fastify 5 + Drizzle ORM (Postgres; Haversine geo, no PostGIS needed)
+- **Infra:** Redis (BullMQ, rate limit), OpenSearch (optional; Postgres fallback for suggest), S3 / LocalStack
+- **Auth:** email + password (scrypt hash) → JWT via `@fastify/jwt`
+- **Deploy:** web → Vercel, API → Railway, DB → Neon, Redis → Upstash
 
-## Running Services
-| Service              | Port  | Status          |
-|----------------------|-------|-----------------|
-| Next.js (web)        | 3001  | ✅ Running      |
-| Fastify (api-server) | 3002  | ✅ Running      |
-| PostgreSQL            | 5432  | ✅ Docker       |
-| Redis                | 6379  | ✅ Docker       |
-| OpenSearch           | 9200  | ⚠️ Docker (non-fatal if down) |
-| LocalStack (S3)      | 4566  | ✅ Docker       |
-
-**Start command:** `docker-compose up -d && npx pnpm dev`
-
-## Current UI Architecture
-- **Background:** `BackgroundMedia.tsx` — fixed `z-(-10)` ambient gradient layer, rendered in root `layout.tsx`
-- **Navbar:** `Navbar.tsx` wrapped in `<header className="glass-nav sticky top-0 z-50">` in `layout.tsx`
-- **Page body:** All sections use glass tokens (`.glass-card`, `.glass-card-hover`, etc.)
-
-## Resolved Issues
-1. ✅ `FST_ERR_HOOK_INVALID_HANDLER` — `auth.ts` route was using `fastify.authenticate` (plugin-scoped decoration). Fixed by importing and using standalone `authGuard` function.
-2. ✅ `EADDRINUSE :3000` — Docker Desktop holds port 3000. Moved Next.js → 3001, API → 3002.
-3. ✅ No Tailwind CSS — `postcss.config.js` was missing from `apps/web`. Created it.
-4. ✅ `Can't resolve './components/Skeleton.js'` — `packages/ui/src/index.ts` used `.js` extensions which break webpack bundler mode. Removed all extensions.
-5. ✅ `shadow-glass class does not exist` — `shadow-glass` was used in `@apply` but not defined in `tailwind.config.ts`. Added to `boxShadow` extension.
-6. ✅ `hover:shadow-brand-500/30` invalid — Tailwind doesn't auto-generate opacity modifiers on custom shadows. Replaced with `hover:shadow-xl`.
-
-## Key File Map
-| Purpose | Path |
+## Ports (local)
+| Service | Port |
 |---|---|
-| Global CSS tokens | `apps/web/src/app/globals.css` |
-| Tailwind config | `apps/web/tailwind.config.ts` |
-| PostCSS config | `apps/web/postcss.config.js` |
-| Root layout | `apps/web/src/app/layout.tsx` |
-| Homepage | `apps/web/src/app/page.tsx` |
-| Background layer | `apps/web/src/components/common/BackgroundMedia.tsx` |
-| UI package exports | `packages/ui/src/index.ts` (extensionless) |
-| API auth guard | `apps/api-server/src/middleware/authGuard.ts` |
-| DB schema | `packages/db/src/schema/index.ts` |
-| Docker services | `docker-compose.yml` |
-| Workspace rules | `.agents/AGENTS.md` + `.antigravityrules` |
+| Next.js (web) | 3001 (`next dev -p 3001`; Docker holds 3000) |
+| Fastify (API) | 3002 |
+| Postgres / Redis / OpenSearch / LocalStack | 5432 / 6379 / 9200 / 4566 |
 
-## Active Tasks / Next Steps
-- [ ] Firebase Auth OTP flow implementation
-- [ ] Real-time lead routing (WebSocket/PubSub)
-- [ ] OpenSearch index optimization
-- [ ] AWS S3 production configuration
-- [ ] Cypress E2E test suite setup
-- [ ] Property detail page (`/property/[slug]`) — full UI polish
-- [ ] Search page (`/search`) — map + list split view, filter panel
+**Note:** the root `.env` points at Neon + Upstash. `pnpm dev` for the API does
+not load `.env`; it falls back to the local Docker defaults. `seed:demo`
+refuses non-local databases.
 
-## Important Conventions
-- All imports in `apps/web`: **extensionless** (webpack bundler)
-- All imports in `apps/api-server`: **`.js` extension** (Node ESM)
-- Auth in routes: use `authGuard` from `middleware/authGuard.ts`, never `fastify.authenticate`
-- UI on dark bg: use `.glass-*` tokens from globals.css
-- UI on light bg: use `.card`, `.btn-brand`, `.input-base` tokens
+## Key Scripts (apps/api-server)
+- `dev` / `dev:worker` — API server and BullMQ worker (image + notification queues)
+- `admin:promote <email>` — make an account a moderator (needed to publish listings)
+- `seed:demo` — local-only demo lister + 10 listings (needs `SEED_PASSWORD`)
+
+## Listing lifecycle
+create → `pending_approval` → admin publishes at `/dashboard/moderation`
+(optionally grants the verified seal) → `active` + indexed → owner can mark
+sold/rented or delete (soft).
+
+## Resolved Issues (history)
+1. `FST_ERR_HOOK_INVALID_HANDLER` — routes use standalone `authGuard`.
+2. Plugins (`cors`, `auth`) must be wrapped with `fastify-plugin`, otherwise
+   CORS headers and `jwtSign/jwtVerify` are scoped away from routes.
+3. Login previously accepted any password; now scrypt-verified.
+4. Zustand `persist` rehydrates synchronously during `create()`; the
+   `hasHydrated` flag is set in a microtask.
+5. Server components cannot call functions exported from `"use client"`
+   modules — shared helpers live in `apps/web/src/lib/`.
+
+## Open / Next Steps
+- [ ] Run migration `0001_add_password_hash.sql` on Neon before deploying the API
+- [ ] Production env: `ALLOWED_ORIGIN`, strong `JWT_SECRET` (Railway); `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SITE_URL` (Vercel)
+- [ ] Deploy the worker as a second Railway service (`node dist/worker.js`)
+- [ ] Terms / Privacy pages (need real legal copy)
+- [ ] Google sign-in (removed placeholder button)
+- [ ] SMS provider for lead notifications
+
+## Conventions
+- `apps/web` imports: extensionless. `apps/api-server` imports: `.js` extensions.
+- Protect routes with `authGuard` (+ `adminGuard` for moderators).
+- UI: component classes from `globals.css` (`.sheet`, `.btn-seal`, `.chip`, `.input-line`…); see DESIGN.md.

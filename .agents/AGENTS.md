@@ -2,7 +2,7 @@
 # Loaded automatically by Antigravity IDE from .agents/AGENTS.md
 
 ## UI Styling
-Always use global CSS utility classes (`.glass-card`, `.glass-nav`, `.glass-input`, `.glass-button`, `.glass-card-hover`) when styling UI components. Never generate long inline Tailwind class strings when a token exists. All tokens are defined in `apps/web/src/app/globals.css`.
+The visual system is "Stamp Paper & Registry" — see `DESIGN.md` (tokens, rules) and `PRODUCT.md` (product truth). Use the component classes in `apps/web/src/app/globals.css` (`.sheet`, `.btn-seal`, `.btn-ink`, `.btn-quiet`, `.chip`, `.input-line`, `.input-box`, `.field-label`, `.container-app`) and colour tokens (`paper`, `sheet`, `ink`, `stamp`, `seal`, `rule`). No emoji, icon tiles, glass, gradients or kickers above headings.
 
 ## Scope Discipline
 Only edit or inspect files explicitly specified in the active prompt. Avoid performing full workspace scans unless asked. When fixing bugs, read only the error file and its direct imports.
@@ -19,6 +19,6 @@ Read `MEMORY.md` at the start of each session to restore active context. Update 
 - Route protection: always use `authGuard` from `src/middleware/authGuard.ts`, never `fastify.authenticate` in route files.
 
 ## CSS Token Reference
-`.glass-nav` = sticky headers | `.glass-card` = static cards | `.glass-card-hover` = clickable cards | `.glass-input` = form inputs on dark bg | `.glass-button` = CTA on dark bg | `.btn-brand` = CTA on light bg | `.container-app` = page width wrapper
+`.sheet` = document surface | `.btn-seal` = primary action (violet) | `.btn-ink` = secondary | `.chip` = toggle (aria-pressed) | `.input-line` = ruled text field | `.input-box` = boxed field | `.field-label` = form label | `.container-app` = page width wrapper
 
-See `.antigravityrules` for full reference table and port map.
+See `.antigravityrules` for the port map and `DESIGN.md` for the full system.

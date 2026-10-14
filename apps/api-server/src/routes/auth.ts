@@ -1,10 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { db, users, properties, leads, savedProperties } from "@99acres/db";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { db, users, properties, leads, savedProperties, passwordResetTokens } from "@99acres/db";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
+import { createHash, randomBytes } from "crypto";
 
 import { authGuard } from "../middleware/authGuard.js";
 import { hashPassword, verifyPassword } from "../services/password.js";
+import { appUrl, emailLayout, sendEmail } from "../services/email.js";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -54,6 +56,16 @@ const publicUserColumns = {
   bio: users.bio,
   createdAt: users.createdAt,
 };
+
+const forgotSchema = z.object({ email: z.string().trim().toLowerCase().email() });
+
+const resetSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "This reset link is invalid"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(128),
+});
+
+const RESET_TTL_MS = 30 * 60 * 1000;
+const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
 
 // Tighter limit than the global one for credential endpoints
 const authRateLimit = { rateLimit: { max: 10, timeWindow: "1 minute" } };
@@ -232,5 +244,81 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         savedProperties: Number(savedStats[0]?.total ?? 0),
       },
     });
+  });
+
+  // POST /api/v1/auth/forgot-password — email a single-use reset link.
+  // Always answers the same way so it can't be used to discover accounts.
+  fastify.post("/forgot-password", { config: { rateLimit: { max: 5, timeWindow: "15 minutes" } } }, async (request, reply) => {
+    const body = forgotSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: "Validation Error", message: "Enter a valid email address" });
+    }
+
+    const [user] = await db
+      .select({ id: users.id, email: users.email, firstName: users.firstName, status: users.status })
+      .from(users)
+      .where(and(eq(users.email, body.data.email), isNull(users.deletedAt)))
+      .limit(1);
+
+    if (user?.email && user.status !== "suspended") {
+      const token = randomBytes(32).toString("base64url");
+      await db.insert(passwordResetTokens).values({
+        userId: user.id,
+        tokenHash: sha256(token),
+        expiresAt: new Date(Date.now() + RESET_TTL_MS),
+      });
+
+      const link = `${appUrl()}/reset-password?token=${token}`;
+      void sendEmail({
+        to: user.email,
+        subject: "Reset your Aangan password",
+        text: `Hi ${user.firstName}, use this link within 30 minutes to set a new password: ${link}
+If you didn't ask for this, ignore this email.`,
+        html: emailLayout(
+          "Reset your password",
+          `<p>Use the button below within 30 minutes to choose a new password.</p>
+           <p><a href="${link}" style="display:inline-block;background:#5B2D8E;color:#fff;padding:10px 20px;text-decoration:none">Set a new password</a></p>
+           <p style="color:#4A564E;font-size:13px">If you didn't ask for this, you can ignore this email; your password stays the same.</p>`
+        ),
+      }).catch((err: unknown) => request.log.error({ err }, "Password reset email failed"));
+    }
+
+    return reply.send({ data: { message: "If an account exists for that email, a reset link is on its way." } });
+  });
+
+  // POST /api/v1/auth/reset-password — set a new password with a valid token
+  fastify.post("/reset-password", { config: authRateLimit }, async (request, reply) => {
+    const body = resetSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: "Validation Error", message: body.error.issues[0]?.message ?? "Invalid input" });
+    }
+
+    const [record] = await db
+      .select({ id: passwordResetTokens.id, userId: passwordResetTokens.userId })
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.tokenHash, sha256(body.data.token)),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (!record) {
+      return reply.status(400).send({ error: "Bad Request", message: "This reset link has expired or was already used. Request a new one." });
+    }
+
+    const passwordHash = await hashPassword(body.data.password);
+    await db.transaction(async (tx) => {
+      await tx.update(users).set({ passwordHash }).where(eq(users.id, record.userId));
+      // Burn this token and any other outstanding ones for the account
+      await tx
+        .update(passwordResetTokens)
+        .set({ usedAt: new Date() })
+        .where(and(eq(passwordResetTokens.userId, record.userId), isNull(passwordResetTokens.usedAt)));
+    });
+
+    return reply.send({ data: { message: "Password updated. You can sign in now." } });
   });
 }

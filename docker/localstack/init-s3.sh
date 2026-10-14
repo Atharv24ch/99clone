@@ -8,7 +8,7 @@ awslocal s3api put-bucket-cors --bucket acres99-media --cors-configuration '{
     {
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-      "AllowedOrigins": ["http://localhost:3000"],
+      "AllowedOrigins": ["http://localhost:3000", "http://localhost:3001"],
       "MaxAgeSeconds": 3000
     }
   ]

@@ -180,6 +180,20 @@ export const accountService = {
     });
   },
 
+  forgotPassword(email: string) {
+    return apiFetch<{ data: { message: string } }>("/api/v1/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  resetPassword(token: string, password: string) {
+    return apiFetch<{ data: { message: string } }>("/api/v1/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  },
+
   me(token: string) {
     return apiFetch<{ data: User }>("/api/v1/auth/me", { token });
   },

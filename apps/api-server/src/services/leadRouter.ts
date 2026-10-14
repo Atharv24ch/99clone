@@ -1,11 +1,8 @@
 import type { Lead } from "@99acres/db";
 import { db, users, properties } from "@99acres/db";
 import { eq, sql } from "drizzle-orm";
-import { Queue } from "bullmq";
 
-import { redis } from "../config/redis.js";
-
-const notificationQueue = new Queue("notifications", { connection: redis });
+import { notificationQueue } from "../config/queues.js";
 
 /**
  * Lead Router Service

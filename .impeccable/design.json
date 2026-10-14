@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-14T18:22:09.768117+00:00",
+  "title": "Design System: Aangan",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Stamp Paper",
+        "canonical": "rgb(234 239 228)"
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Sheet",
+        "canonical": "rgb(248 250 244)"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Deed Ink",
+        "canonical": "rgb(27 36 31)"
+      },
+      "stamp": {
+        "role": "secondary",
+        "displayName": "Stamp Green",
+        "canonical": "rgb(47 93 58)",
+        "tonalRamp": [
+          "#14281A",
+          "#1E3F27",
+          "#2F5D3A",
+          "#46774F",
+          "#6A9670",
+          "#97B798",
+          "#C4D2BE",
+          "#EAEFE4"
+        ]
+      },
+      "seal": {
+        "role": "primary",
+        "displayName": "Registry Violet",
+        "canonical": "rgb(91 45 142)",
+        "tonalRamp": [
+          "#2C1347",
+          "#461F70",
+          "#5B2D8E",
+          "#7448A8",
+          "#9370C2",
+          "#B69CDA",
+          "#D8CAEC",
+          "#EEE7F6"
+        ]
+      },
+      "danger": {
+        "role": "error",
+        "displayName": "Correction Red",
+        "canonical": "rgb(168 44 36)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Home sheet headline only."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Page and section titles."
+      },
+      "price": {
+        "displayName": "Denomination",
+        "purpose": "Prices on cards and the detail page."
+      },
+      "label": {
+        "displayName": "Field label",
+        "purpose": "Form fields and schedule keys; never a kicker."
+      },
+      "typed": {
+        "displayName": "Typed",
+        "purpose": "Registration refs and rupees in words."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet",
+        "value": "0 1px 0 rgb(196 210 190), 0 18px 40px -24px rgb(27 36 31 / 0.35)",
+        "purpose": "Resting document."
+      },
+      {
+        "name": "lift",
+        "value": "0 2px 0 rgb(196 210 190), 0 22px 44px -22px rgb(27 36 31 / 0.4)",
+        "purpose": "Hover, menus, selected listing."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Seal stamp-down and rise entrances."
+      },
+      {
+        "name": "stamp-in",
+        "value": "520ms",
+        "purpose": "One-time seal entrance."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Registry violet; the one primary action per view.",
+      "html": "<button class=\"ds-btn-seal\">Search</button>",
+      "css": ".ds-btn-seal{background:#5B2D8E;color:#fff;font:600 15px Hind,sans-serif;padding:10px 20px;border:0;border-radius:3px;cursor:pointer;transition:background .15s}.ds-btn-seal:hover{background:#461F70}.ds-btn-seal:active{transform:translateY(1px)}.ds-btn-seal:focus-visible{outline:2px solid #5B2D8E;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Ink outline that inverts on hover.",
+      "html": "<button class=\"ds-btn-ink\">Post a property</button>",
+      "css": ".ds-btn-ink{background:transparent;color:#1B241F;font:600 15px Hind,sans-serif;padding:10px 20px;border:1px solid rgba(27,36,31,.7);border-radius:3px;cursor:pointer;transition:background .15s,color .15s}.ds-btn-ink:hover{background:#1B241F;color:#F8FAF4}.ds-btn-ink:focus-visible{outline:2px solid #5B2D8E;outline-offset:2px}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Toggle choice; selected via aria-pressed.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">2 BHK</button> <button class=\"ds-chip\" aria-pressed=\"false\">3 BHK</button>",
+      "css": ".ds-chip{background:#F8FAF4;color:#4A564E;font:400 14px Hind,sans-serif;padding:6px 12px;border:1px solid #C4D2BE;border-radius:3px;cursor:pointer}.ds-chip:hover{border-color:#97B798;color:#1B241F}.ds-chip[aria-pressed=true]{border-color:#5B2D8E;background:#EEE7F6;color:#461F70;font-weight:600}"
+    },
+    {
+      "name": "Ruled Input",
+      "kind": "input",
+      "refersTo": "input-line",
+      "description": "Text typed onto a rule.",
+      "html": "<label class=\"ds-label\">Locality, city or project<input class=\"ds-input-line\" placeholder=\"Baner, Pune\"></label>",
+      "css": ".ds-label{display:block;font:600 11px Hind,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#4A564E}.ds-input-line{display:block;width:100%;margin-top:4px;background:transparent;border:0;border-bottom:1px solid rgba(27,36,31,.3);padding:8px 0;font:400 15px Hind,sans-serif;color:#1B241F;caret-color:#5B2D8E}.ds-input-line:hover{border-bottom-color:rgba(27,36,31,.6)}.ds-input-line:focus{outline:0;border-bottom-color:#5B2D8E}"
+    },
+    {
+      "name": "Listing Slip",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Search result card.",
+      "html": "<article class=\"ds-slip\"><div class=\"ds-slip-photo\"><span>For sale</span></div><div class=\"ds-slip-body\"><small>AAN-5CE98030</small><p class=\"ds-price\">₹1.45 Cr</p><h3>Corner 3 BHK with two balconies</h3><p class=\"ds-meta\">Apartment in Baner, Pune</p><p class=\"ds-spec\">3 BHK · 3 bath · 1,480 sq.ft</p></div></article>",
+      "css": ".ds-slip{width:300px;background:#F8FAF4;border:1px solid #C4D2BE;border-radius:3px;overflow:hidden;font-family:Hind,sans-serif;color:#1B241F;transition:box-shadow .2s}.ds-slip:hover{box-shadow:0 2px 0 #C4D2BE,0 22px 44px -22px rgba(27,36,31,.4)}.ds-slip-photo{position:relative;aspect-ratio:4/3;background:#DCE5D5}.ds-slip-photo span{position:absolute;top:12px;left:0;background:rgba(27,36,31,.85);color:#F8FAF4;font:600 11px Hind,sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px}.ds-slip-body{padding:14px 16px 16px}.ds-slip-body small{font:11px 'Courier Prime',monospace;color:#626E65}.ds-price{margin:8px 0 0;font:26px 'Rozha One',serif;font-variant-numeric:tabular-nums}.ds-slip h3{margin:10px 0 0;font-size:15px;font-weight:600}.ds-meta{margin:4px 0 0;font-size:14px;color:#4A564E}.ds-spec{margin:12px 0 0;padding-top:10px;border-top:1px dashed #C4D2BE;font-size:13px;color:#4A564E}"
+    },
+    {
+      "name": "Registry Seal",
+      "kind": "custom",
+      "refersTo": "seal",
+      "description": "Signature mark for moderator-verified listings and completed actions.",
+      "html": "<svg class=\"ds-seal\" viewBox=\"0 0 120 120\" width=\"112\" height=\"112\"><defs><path id=\"r\" d=\"M60 60 m-41 0 a41 41 0 1 1 82 0 a41 41 0 1 1 -82 0\"/></defs><g fill=\"none\" stroke=\"currentColor\"><circle cx=\"60\" cy=\"60\" r=\"54\" stroke-width=\"2.2\"/><circle cx=\"60\" cy=\"60\" r=\"50\" stroke-width=\".9\"/><circle cx=\"60\" cy=\"60\" r=\"33\" stroke-width=\"1.1\"/><text fill=\"currentColor\" stroke=\"none\" font-size=\"8.4\" font-weight=\"700\" letter-spacing=\"1.6\"><textPath href=\"#r\">AANGAN REGISTRY · VERIFIED LISTING · AANGAN REGISTRY · VERIFIED LISTING ·</textPath></text><text x=\"60\" y=\"64\" text-anchor=\"middle\" fill=\"currentColor\" stroke=\"none\" font-size=\"13\" font-family=\"Rozha One,serif\">Verified</text></g></svg>",
+      "css": ".ds-seal{color:#5B2D8E;transform:rotate(-8deg)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Stamp-Paper Register",
+    "overview": "Aangan borrows the visual grammar Indian households already trust with property: non-judicial stamp paper, sale deeds and the sub-registrar's violet seal. The page ground is pale stamp-paper green; content sits on sheets framed by guilloche line-work; facts are typed into ruled schedules; verification is a stamped seal, never a badge pill.\n\nThe world carries the page without costuming it. Display type and ornament live at the edges (headings, prices, frames); every working control is set in a calm Hind sans so search, filters, forms and dashboards stay fast to scan.",
+    "keyCharacteristics": [
+      "Pale green paper ground, near-white sheets, deed-black ink.",
+      "Guilloche bands, rosettes and double hairline rules as the only ornament, all generated SVG.",
+      "Registry violet reserved for the primary action, the seal, and selection.",
+      "Prices as denominations: figures in Rozha One, rupees in words in a typewriter face.",
+      "Tabular numerals wherever numbers line up."
+    ],
+    "rules": [
+      {
+        "name": "The Two-Ink Rule",
+        "body": "A region uses black ink plus one colour (green or violet). Never stack badge colours; status is told with an outlined pill in the region's ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Seal Is Earned Rule",
+        "body": "Violet seals appear only for moderator-verified listings and for confirmations of a completed action (enquiry sent, listing received, no record found).",
+        "section": "colors"
+      },
+      {
+        "name": "The Field Label Rule",
+        "body": "Uppercase tracked labels name a form field or schedule column. They never sit above a heading as a kicker.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do set prices with `formatListingPrice` and show rupees in words on the detail denomination.",
+      "Do use tabular numerals for prices, areas, counts and refs.",
+      "Do keep ornament to generated guilloche, rules and the seal.",
+      "Do tell status with outlined pills in ink, green or violet."
+    ],
+    "donts": [
+      "Don't use emoji, cartoon illustrations or icon tiles as decoration; lucide icons appear only inside controls at 16 to 20px.",
+      "Don't add glass, gradients or full-bleed video backgrounds.",
+      "Don't place uppercase kickers above headings.",
+      "Don't show the seal on anything a moderator hasn't verified.",
+      "Don't invent figures; the home schedule and city counts are owner-approved placeholders until real stats replace them."
+    ]
+  }
+}
